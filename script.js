@@ -1,23 +1,3 @@
-// ==================== FIREBASE INIT ====================
-// চেক করুন Firebase ইতিমধ্যে initialized কিনা
-if (typeof firebase !== 'undefined' && !firebase.apps.length) {
-    const firebaseConfig = {
-        apiKey: "AIzaSyBOQPeLUDcGe-64za2MTw3eHbCXT1KTEvI",
-        authDomain: "electricity-bill-app-636e8.firebaseapp.com",
-        databaseURL: "https://electricity-bill-app-636e8-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId: "electricity-bill-app-636e8",
-        storageBucket: "electricity-bill-app-636e8.firebasestorage.app",
-        messagingSenderId: "975938216195",
-        appId: "1:975938216195:web:7a1815cc80bc53072b8936"
-    };
-    
-    firebase.initializeApp(firebaseConfig);
-    console.log('🔥 Firebase Initialized from script.js!');
-}
-
-const database = firebase.database();
-console.log('🔥 Firebase Connected!');
-
 // ==================== FIREBASE AUTO SYNC SYSTEM ====================
 
 let firebaseSyncEnabled = true;
