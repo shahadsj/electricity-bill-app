@@ -14,13 +14,17 @@ function setupPWAUpdateChecker() {
         const newWorker = registration.installing;
         console.log('🆕 New Service Worker found!');
         
-        newWorker.addEventListener('statechange', () => {
-          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            console.log('✨ Update available!');
-            showPWAUpdateNotification();
-          }
-        });
+        if (newWorker) {
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              console.log('✨ Update available!');
+              showPWAUpdateNotification();
+            }
+          });
+        }
       });
+    }).catch(error => {
+      console.log('Service Worker not ready:', error);
     });
     
     // কন্ট্রোল চেঞ্জ হলে রিলোড
@@ -31,6 +35,8 @@ function setupPWAUpdateChecker() {
       console.log('🔄 Reloading to apply update...');
       window.location.reload();
     });
+  } else {
+    console.log('Service Worker not supported in this browser');
   }
 }
 
@@ -56,7 +62,6 @@ function showPWAUpdateNotification() {
       align-items: center;
       gap: 15px;
       animation: slideUp 0.5s ease;
-      cursor: pointer;
     ">
       <div style="font-size: 24px;">🔄</div>
       <div style="flex: 1;">
@@ -71,7 +76,8 @@ function showPWAUpdateNotification() {
         border-radius: 25px;
         cursor: pointer;
         font-weight: bold;
-      ">
+        transition: all 0.3s ease;
+      " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
         আপডেট
       </button>
     </div>
@@ -85,7 +91,12 @@ function showPWAUpdateNotification() {
   setTimeout(() => {
     if (notificationDiv && notificationDiv.parentElement) {
       notificationDiv.style.opacity = '0';
-      setTimeout(() => notificationDiv.remove(), 500);
+      notificationDiv.style.transition = 'opacity 0.5s ease';
+      setTimeout(() => {
+        if (notificationDiv && notificationDiv.parentElement) {
+          notificationDiv.remove();
+        }
+      }, 500);
     }
   }, 60000);
 }
@@ -95,18 +106,31 @@ function applyPWAUpdate() {
     navigator.serviceWorker.ready.then(registration => {
       if (registration.waiting) {
         registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-        showNotification('✅ আপডেট করা হচ্ছে...', 'success');
+        if (typeof showNotification === 'function') {
+          showNotification('✅ আপডেট করা হচ্ছে... পেজ রিলোড হবে', 'success');
+        } else {
+          alert('✅ আপডেট করা হচ্ছে... পেজ রিলোড হবে');
+        }
       } else {
         window.location.reload();
       }
+    }).catch(error => {
+      console.log('Update error:', error);
+      window.location.reload();
     });
+  } else {
+    window.location.reload();
   }
 }
 
 // পেজ লোড হলে সেটআপ করুন
-document.addEventListener('DOMContentLoaded', function() {
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(setupPWAUpdateChecker, 3000);
+  });
+} else {
   setTimeout(setupPWAUpdateChecker, 3000);
-});
+}
 
 // CSS অ্যানিমেশন
 if (!document.querySelector('#pwa-update-style')) {
@@ -127,5 +151,8 @@ if (!document.querySelector('#pwa-update-style')) {
   document.head.appendChild(style);
 }
 
-// গ্লোবাল ফাংশন
+// গ্লোবাল ফাংশন এক্সপোজ
 window.applyPWAUpdate = applyPWAUpdate;
+window.setupPWAUpdateChecker = setupPWAUpdateChecker;
+
+console.log('✅ PWA Auto Update Checker Loaded');
