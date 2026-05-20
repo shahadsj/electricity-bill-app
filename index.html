@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>বিদ্যুৎ বিল ম্যানেজমেন্ট</title>
+    
+    <!-- ===== PWA META TAGS ===== -->
+    <meta name="theme-color" content="#3498db">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="বিল ক্যালকুলেটর">
+    <meta name="description" content="আপনার বিদ্যুৎ বিল ক্যালকুলেশন এবং ট্র্যাকিং অ্যাপ">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="icon" type="image/png" href="icons/icon-192x192.png">
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+    <!-- ===== END PWA META TAGS ===== -->
+    
+    <link rel="stylesheet" href="style.css">
+    <!-- Chart.js for Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- JSZip for backup downloads -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+    <!-- লগিন মডাল -->
+    <div id="loginModal" class="modal" style="display: flex;">
+        <div class="modal-content" style="max-width: 400px;">
+            <div style="text-align: center; padding: 20px;">
+                <h2>🔐 লগইন করুন</h2>
+                <p>বিদ্যুৎ বিল ম্যানেজমেন্ট সিস্টেম</p>
+            </div>
+            
+            <form id="loginForm" onsubmit="handleLogin(event)">
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">ইউজারনেম</label>
+                    <input type="text" id="username" required 
+                           style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px;"
+                           placeholder="আপনার ইউজারনেম">
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">পাসওয়ার্ড</label>
+                    <input type="password" id="password" required 
+                           style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px;"
+                           placeholder="আপনার পাসওয়ার্ড">
+                </div>
+                
+                <button type="submit" 
+                        style="width: 100%; padding: 12px; background: #3498db; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin-bottom: 15px;">
+                    🔐 লগইন
+                </button>
+            </form>
+            
+            <div style="text-align: center;">
+                <button onclick="showRegisterForm()" 
+                        style="background: none; border: none; color: #3498db; cursor: pointer; text-decoration: underline;">
+                    নতুন অ্যাকাউন্ট তৈরি করুন
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- রেজিস্টার মডাল -->
+    <div id="registerModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 400px;">
+            <div style="text-align: center; padding: 20px;">
+                <h2>📝 অ্যাকাউন্ট তৈরি করুন</h2>
+                <p>নতুন অ্যাকাউন্ট রেজিস্টার করুন</p>
+            </div>
+            
+            <form id="registerForm" onsubmit="handleRegister(event)">
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">পুরো নাম</label>
+                    <input type="text" id="fullName" required 
+                           style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px;"
+                           placeholder="আপনার পুরো নাম">
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">ইউজারনেম</label>
+                    <input type="text" id="regUsername" required 
+                           style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px;"
+                           placeholder="ইউজারনেম নির্বাচন করুন">
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">ইমেইল</label>
+                    <input type="email" id="email" required 
+                           style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px;"
+                           placeholder="আপনার ইমেইল">
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">পাসওয়ার্ড</label>
+                    <input type="password" id="regPassword" required 
+                           style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px;"
+                           placeholder="পাসওয়ার্ড তৈরি করুন">
+                    <small style="color: #666;">অন্তত ৬ ক্যারেক্টার</small>
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">পাসওয়ার্ড নিশ্চিত করুন</label>
+                    <input type="password" id="confirmPassword" required 
+                           style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px;"
+                           placeholder="পাসওয়ার্ড আবার লিখুন">
+                </div>
+                
+                <button type="submit" 
+                        style="width: 100%; padding: 12px; background: #27ae60; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin-bottom: 15px;">
+                    📝 রেজিস্টার
+                </button>
+            </form>
+            
+            <div style="text-align: center;">
+                <button onclick="showLoginForm()" 
+                        style="background: none; border: none; color: #3498db; cursor: pointer; text-decoration: underline;">
+                    Already have an account? Login
+                </button>
+            </div>
+        </div>
+    </div>
+	
+	<!-- Profile Edit Modal -->
+<div id="profileModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3>👤 প্রোফাইল এডিট</h3>
+            <span class="close" onclick="closeProfileModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="profileForm" onsubmit="saveProfile(event)">
+                <div class="input-group">
+                    <label for="editProfileName">পুরো নাম</label>
+                    <input type="text" id="editProfileName" required 
+                           style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px;"
+                           placeholder="আপনার পুরো নাম">
+                </div>
+                
+                <div class="input-group">
+                    <label for="editProfileUsername">ইউজারনেম</label>
+                    <input type="text" id="editProfileUsername" required 
+                           style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px;"
+                           placeholder="ইউজারনেম">
+                </div>
+                
+                <div class="input-group">
+                    <label for="editProfileEmail">ইমেইল</label>
+                    <input type="email" id="editProfileEmail" required 
+                           style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px;"
+                           placeholder="আপনার ইমেইল">
+                </div>
+                
+                <div class="input-group">
+                    <label for="editProfilePassword">নতুন পাসওয়ার্ড (যদি পরিবর্তন করতে চান)</label>
+                    <input type="password" id="editProfilePassword" 
+                           style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px;"
+                           placeholder="নতুন পাসওয়ার্ড">
+                    <small style="color: #666;">খালি রাখুন যদি পরিবর্তন না করতে চান</small>
+                </div>
+                
+                <div class="input-group">
+                    <label for="confirmProfilePassword">পাসওয়ার্ড নিশ্চিত করুন</label>
+                    <input type="password" id="confirmProfilePassword" 
+                           style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px;"
+                           placeholder="পাসওয়ার্ড আবার লিখুন">
+                </div>
+                
+                <div class="form-buttons" style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button type="submit" style="flex: 1; padding: 12px; background: #27ae60; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer;">
+                        💾 সেভ করুন
+                    </button>
+                    <button type="button" onclick="closeProfileModal()" style="flex: 1; padding: 12px; background: #95a5a6; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer;">
+                        ❌ বাতিল
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+    <!-- মেইন অ্যাপ -->
+    <div id="mainApp" style="display: none;">
+        <!-- হেডার -->
+        <header style="color: white; padding: 15px 20px; position: relative; display: flex; justify-content: space-between; align-items: center;">
+            
+            <!-- বাম পাশ - অ্যাপ লোগো ও নাম -->
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div style="width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+                  
+                </div>
+                
+            </div>
+
+            <!-- ডান পাশ - ইউজার ইনফো -->
+            <div id="userDisplay" style="display: flex; align-items: center; gap: 10px;">
+                <!-- ইউজার ইনফো JavaScript দিয়ে লোড হবে -->
+            </div>
+
+        </header>
+
+        <!-- Header with Controls -->
+        <div class="header-controls">
+            <button onclick="toggleDarkMode()" class="control-btn" title="ডার্ক মোড">
+                🌙 ডার্ক মোড
+            </button>
+            <button onclick="toggleHighContrast()" class="control-btn" title="হাই কনট্রাস্ট">
+                🎨 হাই কনট্রাস্ট
+            </button>
+            <button onclick="increaseFontSize()" class="control-btn" title="ফন্ট সাইজ বড় করুন">
+                🔍 ফন্ট বড়
+            </button>
+            <button onclick="backupData()" class="control-btn" title="ডেটা ব্যাকআপ">
+                💾 ব্যাকআপ
+            </button>
+            <input type="file" id="restoreFile" accept=".json" style="display: none;" onchange="restoreData(this.files[0])">
+            <button onclick="document.getElementById('restoreFile').click()" class="control-btn" title="ডেটা রিস্টোর">
+                📂 রিস্টোর
+            </button>
+            <button onclick="enableAutoBackup()" class="control-btn" title="অটো ব্যাকআপ">
+                ⚙️ অটো ব্যাকআপ
+            </button>
+            <button onclick="viewAutoBackups()" class="control-btn" title="ব্যাকআপ দেখুন">
+                📋 ব্যাকআপ দেখুন
+            </button>
+            <button onclick="downloadAutoBackupFiles()" class="control-btn" title="ব্যাকআপ ডাউনলোড">
+                ⬇️ ব্যাকআপ ডাউনলোড
+            </button>
+			<button onclick="showSyncHelp()" 
+				style="padding: 8px 15px; background: #9b59b6; color: white; border: none; border-radius: 20px; cursor: pointer; margin-right: 10px;">
+				🌐 ব্রাউজার সিঙ্ক
+			</button>
+        </div>
+
+        <!-- Toast Notifications -->
+        <div class="toast-container" id="toastContainer"></div>
+
+        <div class="container">
+            <div class="header-with-stats">
+                <h1 style="text-align: center; margin: 0;">বিদ্যুৎ বিল ম্যানেজমেন্ট</h1>
+                <div class="header-stats">
+                    <div class="stat-badge">
+                        <span class="stat-label">মোট KWH</span>
+                        <span class="stat-value" id="headerTotalKWH">0 kWh</span>
+                    </div>
+                    <div class="stat-badge">
+                        <span class="stat-label">গড় মাসিক KWH</span>
+                        <span class="stat-value" id="headerAvgMonthlyKWH">0 kWh</span>
+                    </div>
+                </div>
+            </div>
+                
+            <div class="info-section">
+    <h3>মিটার তথ্য 
+        <button onclick="toggleMeterEdit()" class="edit-btn" title="এডিট করুন">✏️ এডিট</button>
+        <button onclick="manageMeters()" class="edit-btn" style="background: #9b59b6; margin-left: 5px;" title="মিটার ম্যানেজমেন্ট">📋 মিটার ম্যানেজ</button>
+    </h3>
+    <div class="meter-info">
+        <div id="meterSelectorContainer" style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+            <select id="meterSelector" style="flex: 1; padding: 8px; border-radius: 8px; border: 1px solid #ddd;" 
+                    onchange="onMeterSelectChange(this.value)"></select>
+            <button onclick="showAddMeterModal()" class="save-btn" style="padding: 8px 12px;">➕ নতুন মিটার</button>
+        </div>
+        <div id="meterDisplay">
+            <p><strong>নাম:</strong> <span id="meterName">মাকসুদা বেগম</span> 
+               <strong>মিটার নং:</strong> <span id="meterNumber">030619019016</span> 
+               <strong>অ্যাকাউন্ট নং:</strong> <span id="accountNumber">41438590</span></p>
+        </div>
+        <div id="meterEdit" style="display: none;">
+                <div class="input-group" style="display: grid; gap: 10px;">
+					<input type="text" id="editMeterName" placeholder="নাম *">
+					<input type="text" id="editMeterNumber" placeholder="মিটার নং *">
+					<input type="text" id="editAccountNumber" placeholder="অ্যাকাউন্ট নং *">
+					<input type="text" id="editMeterAddress" placeholder="ঠিকানা (ঐচ্ছিক)">
+					<input type="tel" id="editMeterPhone" placeholder="ফোন নম্বর (ঐচ্ছিক)">
+				</div>
+            <div class="meter-edit-buttons">
+                <button onclick="saveMeterInfo()" class="save-btn">💾 সেভ করুন</button>
+                <button onclick="cancelMeterEdit()" class="clear-btn">❌ বাতিল</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+            <!-- সেটিংস সেকশন -->
+            <div class="settings-section">
+                <h3>সেটিংস</h3>
+                <div class="settings-form">
+                    <div class="input-group">
+                        <label for="vatRate">VAT রেট (%)</label>
+                        <input type="number" id="vatRate" step="0.01" placeholder="VAT রেট" oninput="autoSave()">
+                        <div class="validation-message">VAT রেট ০ এর বেশি হতে হবে</div>
+                    </div>
+                    <div class="input-group">
+                        <label for="rebateRate">রিবেট রেট (%)</label>
+                        <input type="number" id="rebateRate" step="0.01" placeholder="রিবেট রেট" oninput="autoSave()">
+                        <div class="validation-message">রিবেট রেট বৈধ হতে হবে</div>
+                    </div>
+                    <div class="input-group">
+                        <label for="demandCharge">মাসিক ডিমান্ড চার্জ (টাকা)</label>
+                        <input type="number" id="demandCharge" step="0.01" placeholder="মাসিক ডিমান্ড চارژ" oninput="autoSave()">
+                        <div class="validation-message">ডিমান্ড চার্জ ০ এর বেশি হতে হবে</div>
+                    </div>
+                    <!-- <div class="input-group"> -->
+                        <!-- <label for="firstDemandCharge">প্রথম ডিমান্ড চার্জ (টাকা)</label> -->
+                        <!-- <input type="number" id="firstDemandCharge" step="0.01" placeholder="প্রথম ডিমান্ড চার্জ" oninput="autoSave()"> -->
+                        <!-- <div class="validation-message">প্রথম ডিমান্ড চার্জ ০ এর বেশি হতে হবে</div> -->
+                    <!-- </div> -->
+                    <div class="settings-buttons">
+                        <button onclick="saveSettings()">সেটিংস সেভ করুন</button>
+                        <button onclick="resetSettings()" class="clear-btn">ডিফল্ট সেটিংস</button>
+                    </div>
+					<div class="input-group">
+            <!-- <label>ক্লাউড ব্যাকআপ:</label> -->
+            <!-- <button onclick="showCloudBackupManager()" class="btn"  -->
+                    <!-- style="background: #3498db; color: white; padding: 10px;"> -->
+                <!-- ☁️ ক্লাউড ব্যাকআপ ম্যানেজার -->
+            <!-- </button> -->
+        </div>
+                </div>
+            </div>
+
+            <div class="balance-section">
+                <h3>মাসিক রিচার্জ ম্যানেজমেন্ট</h3>
+                <div class="input-group">
+                    <input type="number" id="rechargeAmount" placeholder="রিচার্জের টাকার পরিমাণ" oninput="autoSave()">
+                    <input type="date" id="rechargeDate" placeholder="তারিখ নির্বাচন করুন" onchange="autoSave()">
+                    <button onclick="addMonthlyRecharge()">মাসিক রিচার্জ যোগ করুন</button>
+                </div>
+				
+				<div class="unit-display-card" style="background: white; padding: 20px; border-radius: 10px; margin: 10px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+				<h3 style="margin-top: 0; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px;">📊 মাসিক ইউনিট ট্র্যাকার</h3>
+				
+				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+				<div style="text-align: center;">
+				<div style="font-size: 14px; color: #7f8c8d;">বর্তমান মাস</div>
+				<div id="currentMonthName" style="font-size: 16px; font-weight: bold; color: #3498db;">লোড হচ্ছে...</div>
+				</div>
+				<div style="text-align: center;">
+				<div style="font-size: 14px; color: #7f8c8d;">শেষ রিসেট</div>
+				<div id="lastResetDate" style="font-size: 16px; font-weight: bold; color: #e74c3c;">লোড হচ্ছে...</div>
+				</div>
+			</div>
+    
+				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+				<div style="background: linear-gradient(135deg, #3498db, #2980b9); color: white; padding: 15px; border-radius: 8px; text-align: center;">
+				<div style="font-size: 18px; font-weight: bold;" id="currentMonthUnits">0.00</div>
+				<small>বর্তমান মাসের ইউনিট</small>
+				</div>
+				<div style="background: linear-gradient(135deg, #27ae60, #229954); color: white; padding: 15px; border-radius: 8px; text-align: center;">
+				<div style="font-size: 18px; font-weight: bold;" id="totalUnitsDisplay">0.00</div>
+				<small>মোট ইউনিট</small>
+				</div>
+			</div>
+    
+				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px;">
+				<button onclick="addManualUnits()" style="padding: 8px 15px; background: #f39c12; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
+            ➕ ইউনিট যোগ
+				</button>
+				<button onclick="showMonthlyUnitReport()" style="padding: 8px 15px; background: #9b59b6; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px;">
+            📊 রিপোর্ট দেখুন
+				</button>
+			</div>
+		</div>
+                
+                <div class="input-group">
+                    <input type="number" id="balanceAmount" placeholder="নতুন ব্যালেন্স ইনপুট দিন" oninput="autoSave()">
+                    <input type="date" id="balanceDate" placeholder="তারিখ নির্বাচন করুন" onchange="autoSave()">
+                    <button onclick="updateBalance()">ব্যালেন্স আপডেট করুন</button>
+                </div>
+                <small style="color: #666; margin-top: -10px; display: block;">
+                    💡 টিপ: বর্তমান ব্যালেন্স থেকে কম লিখলে খরচ যোগ হবে, বেশি লিখলে রিচার্জ যোগ হবে
+                </small>
+                
+                <div class="balance-display">
+                    <p>মোট রিচার্জ: <span id="totalRecharge">0</span> টাকা</p>
+                    <p>মোট খরচ: <span id="totalExpended">0</span> টাকা</p>
+                    <p>সর্বশেষ খরচ: <span id="lastBalance">0</span> টাকা</p>
+                    <p class="current-balance">বর্তমান ব্যালেন্স: <span id="currentBalance">0</span> টাকা</p>
+                    <!-- Progress Bar -->
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="balanceProgress"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="calculation-section">
+                <div class="tabs">
+                    <button class="tab-button active" onclick="openTab('unitTab')">ইউনিট থেকে টাকা</button>
+                    <button class="tab-button" onclick="openTab('moneyTab')">টাকা থেকে ইউনিট</button>
+                    <button class="tab-button" onclick="openTab('dailyTab')">দৈনিক বিল</button>
+                    <button class="tab-button" onclick="openTab('analyticsTab')">এনালিটিক্স</button>
+                    <button class="tab-button" onclick="openTab('reportTab')">রিপোর্ট</button>
+                    <button class="tab-button" onclick="openTab('descoTab')">DESCO বিল</button>
+                    <button class="tab-button" onclick="openTab('unitsTab')">ইউনিট ক্যালকুলেটর</button>
+                    <button class="tab-button" onclick="openTab('applianceTab')">যন্ত্রপাতির খরচ</button>
+                </div>
+                
+                <!-- নতুন ট্যাব কন্টেন্ট -->
+                <div id="applianceTab" class="tab-content appliance-tab">
+                    <h3>🔌 যন্ত্রপাতির বিদ্যুৎ খরচ ক্যালকুলেটর</h3>
+                    
+                    <div class="appliance-selector">
+                        <h4>যন্ত্রপাতি সিলেক্ট করুন</h4>
+                        <div class="quick-appliances" id="quickAppliances">
+                            <!-- Quick appliance buttons will be loaded here -->
+                        </div>
+                        
+                        <div class="input-group">
+                            <input type="text" id="customAppliance" placeholder="কাস্টম যন্ত্রের নাম" class="option-input" style="flex: 2;">
+                            <input type="number" id="customWatt" placeholder="ওয়াট (W)" class="option-input" style="flex: 1;">
+                            <input type="number" id="customHours" placeholder="দৈনিক ঘন্টা" class="option-input" style="flex: 1;">
+                            <button onclick="addCustomAppliance()" class="appliance-btn" style="flex: 1;">➕ যোগ করুন</button>
+                        </div>
+                    </div>
+
+                    <div class="selected-appliances">
+                        <h4>সিলেক্টেড যন্ত্রপাতি</h4>
+                        <div id="applianceList" class="appliance-list">
+                            <!-- Appliance items will be loaded here -->
+                        </div>
+                    </div>
+
+                    <div class="calculation-options">
+                        <h4>ক্যালকুলেশন অপশন</h4>
+                        <div class="input-group">
+                            <input type="number" id="daysCount" placeholder="কত দিনের জন্য?" value="30" class="option-input" style="flex: 1;">
+                            <input type="number" id="electricityRate" placeholder="ইউনিট রেট (টাকা)" value="6.5" step="0.01" class="option-input" style="flex: 1;">
+                            <button onclick="calculateApplianceCost()" class="calculate-btn" style="flex: 1;">ক্যালকুলেট করুন</button>
+                        </div>
+                    </div>
+
+                    <div class="appliance-result" id="applianceResult" style="display: none;">
+                        <!-- Results will be shown here -->
+                    </div>
+
+                    <div class="energy-tips">
+                        <h4>💡 এনার্জি সেভিং টিপস</h4>
+                        <div id="energyTips">
+                            <!-- Tips will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+
+                <div id="unitTab" class="tab-content active">
+                    <h3>ইউনিট থেকে টাকা ক্যালকুলেশন</h3>
+                    <div class="input-group">
+                        <input type="number" id="unitInput" placeholder="ইউনিট সংখ্যা ইনপুট করুন">
+                        <button onclick="calculateFromUnit()">ক্যালকুলেট করুন</button>
+                    </div>
+                    <div class="result" id="unitResult"></div>
+                </div>
+
+                <div id="moneyTab" class="tab-content">
+                    <h3>টাকা থেকে ইউনিট ক্যালকুলেশন</h3>
+                    <div class="input-group">
+                        <input type="number" id="moneyInput" placeholder="টাকার পরিমাণ ইনপুট করুন">
+                        <button onclick="calculateFromMoney()">ক্যালকুলেট করুন</button>
+                    </div>
+                    <div class="result" id="moneyResult"></div>
+                </div>
+
+                <div id="dailyTab" class="tab-content">
+                    <h3>দৈনিক বিল ক্যালকুলেশন</h3>
+                    <div class="input-group">
+                        <input type="date" id="startDate" placeholder="শুরুর তারিখ">
+                        <input type="date" id="endDate" placeholder="শেষ তারিখ">
+                        <input type="number" id="dailyUnit" placeholder="দৈনিক ইউনিট (kWh)">
+                        <input type="number" id="dailyMoney" placeholder="দৈনিক টাকা">
+                        <button onclick="calculateDailyBill()">ক্যালকুলেট করুন</button>
+                    </div>
+                    <div class="result" id="dailyResult"></div>
+                </div>
+
+                <div id="analyticsTab" class="tab-content">
+                    <h3>ব্যবহারের বিশ্লেষণ</h3>
+					
+					<!-- নতুন এডভান্সড রিপোর্ট বাটন যোগ করুন -->
+						<div class="analytics-controls">
+						<button onclick="showAdvancedReports()" class="action-btn primary">
+						🚀 এডভান্সড রিপোর্ট
+						</button>
+						<button onclick="generateMonthlyChart()">মাসিক রিপোর্ট</button>
+						<button onclick="generateUsageChart()">ব্যবহারের ট্রেন্ড</button>
+						<button onclick="generateCostChart()">খরচ বিশ্লেষণ</button>
+					</div>
+                    
+                    <!-- চার্ট কন্টেইনার - height increase করা -->
+                    <div class="chart-container" style="height: 400px; margin-bottom: 20px;">
+                        <canvas id="analyticsChart"></canvas>
+                    </div>
+                    
+                    <!-- স্ট্যাটস সেকশন - আলাদাভাবে -->
+                    <div class="analytics-stats" id="analyticsStats" style="background: #f8f9fa; padding: 20px; border-radius: 10px; border-left: 4px solid #9b59b6;"></div>
+                </div>
+
+                <div id="reportTab" class="tab-content">
+                    <h3>ট্রানজেকশন রিপোর্ট</h3>
+					
+					<!-- নতুন এডভান্সড রিপোর্ট বাটন যোগ করুন -->
+					<div class="report-controls">
+						<button onclick="showAdvancedReports()" class="action-btn primary">
+						📊 এডভান্সড রিপোর্ট
+						</button>
+					<button onclick="clearAllData()" class="clear-btn">সব ডেটা ক্লিয়ার করুন</button>
+					<button onclick="exportToExcel()" class="export-btn">এক্সেলে এক্সপোর্ট করুন</button>
+					<button onclick="printReport()" class="print-btn no-print">প্রিন্ট করুন</button>
+					<button onclick="showMonthlySlabAnalysis()" class="action-btn">
+					📊 মাসিক স্ল্যাব বিশ্লেষণ
+					</button>
+					<!-- ক্লাউড ব্যাকআপ বাটন -->
+        <button onclick="showCloudBackupManager()" class="btn"
+                style="padding: 12px 25px; background: #3498db; color: white; border: none; border-radius: 8px;">
+            ☁️ ক্লাউড ব্যাকআপ
+        </button>
+		<button onclick="showMonthlySummary()" 
+        style="padding: 12px 20px; background: linear-gradient(135deg, #3498db, #2980b9); 
+               color: white; border: none; border-radius: 8px; cursor: pointer; 
+               font-size: 14px; font-weight: bold; transition: all 0.3s ease;"
+        onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 5px 15px rgba(52, 152, 219, 0.3)'"
+        onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+    📅 মাসিক সারাংশ দেখুন
+</button>
+				</div>
+                       
+                    <!-- Search and Filter -->
+                    <div class="search-box">
+                        <input type="text" id="searchInput" placeholder="ট্রানজেকশন খুঁজুন..." onkeyup="filterTransactions()">
+                        <span class="search-icon">🔍</span>
+                    </div>
+                    
+
+                    
+                    <div class="report-summary">
+                        <h4>সামারি</h4>
+                        <div class="summary-grid">
+                            <div class="summary-item">
+                                <span>মোট রিচার্জ:</span>
+                                <span id="totalDeposit">0 টাকা</span>
+                            </div>
+                            <div class="summary-item">
+                                <span>মোট খরচ:</span>
+                                <span id="totalExpense">0 টাকা</span>
+                            </div>
+                            <div class="summary-item">
+                                <span>মোট ট্রানজেকশন:</span>
+                                <span id="totalTransactions">0</span>
+                            </div>
+                            <div class="summary-item">
+                                <span>গড় মাসিক খরচ:</span>
+                                <span id="avgMonthlyExpense">0 টাকা</span>
+                            </div>
+                            <div class="summary-item">
+                                <span>মোট KWH:</span>
+                                <span id="totalKWH">0 kWh</span>
+                            </div>
+                            <div class="summary-item">
+                                <span>গড় মাসিক KWH:</span>
+                                <span id="avgMonthlyKWH">0 kWh</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="monthly-summary">
+                        <h4>মাসিক সারাংশ</h4>
+                        <div id="monthlySummaryList">
+                            <!-- মাসিক সারাংশ এখানে লোড হবে -->
+                        </div>
+                    </div>
+                    
+                    <div class="transaction-list" id="transactionList">
+                        <!-- ট্রানজেকশন লিস্ট এখানে লোড হবে -->
+                    </div>
+                </div>
+
+                <div id="descoTab" class="tab-content">
+                    <h3>DESCO বিল ক্যালকুলেশন</h3>
+                    
+                    <!-- বেসিক ইনপুট -->
+                    <div class="input-group">
+                        <input type="number" id="grossAmount" placeholder="গ্রোস অ্যামাউন্ট (টাকা)" step="0.01">
+                        
+                        <!-- তারিখ সিলেক্টর -->
+                        <div class="date-selector" style="position: relative; flex: 1;">
+                            <input type="text" id="currentMonth" placeholder="মাস ও বছর সিলেক্ট করুন" readonly 
+                                   style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; background: white; cursor: pointer;">
+                            <span class="calendar-icon" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #3498db; cursor: pointer;">📅</span>
+                        </div>
+                        
+                        <button onclick="calculateBill()">বিল ক্যালকুলেট করুন</button>
+                        <button onclick="resetBillCalculator()" class="clear-btn">রিসেট</button>
+                    </div>
+
+                    <!-- কুইক অ্যামাউন্ট বাটন -->
+                    <div class="quick-amounts" id="quickAmountsContainer" style="margin: 10px 0; display: flex; gap: 5px; flex-wrap: wrap;"></div>
+                    
+                    <!-- মাস সিলেক্টর ক্যালেন্ডার -->
+                    <div id="monthPickerModal" class="modal" style="display: none;">
+                        <div class="modal-content" style="max-width: 320px;">
+                            <div class="modal-header">
+                                <h3>মাস ও বছর সিলেক্ট করুন</h3>
+                                <span class="close" onclick="closeMonthPicker()">&times;</span>
+                            </div>
+                            <div class="modal-body">
+                                <div class="month-picker">
+                                    <div class="year-selector">
+                                        <button onclick="changeYear(-1)" class="nav-btn">◀</button>
+                                        <span id="currentYear" style="font-size: 18px; font-weight: bold; margin: 0 15px;">২০২৪</span>
+                                        <button onclick="changeYear(1)" class="nav-btn">▶</button>
+                                    </div>
+                                    <div class="months-grid" id="monthsGrid">
+                                        <!-- মাসগুলো এখানে লোড হবে -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- এডভান্সড অপশন -->
+                    <div class="advanced-options" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #3498db;">
+                        <h4 style="margin-top: 0; color: #2c3e50;">এডভান্সড অপশন</h4>
+                        <div class="input-group">
+                            <input type="number" id="customDemandCharge" placeholder="কাস্টম ডিমান্ড চার্জ (টাকা)" step="0.01" style="flex: 1;">
+                            <select id="demandChargeType" style="padding: 12px; border: 2px solid #ddd; border-radius: 8px;">
+                                <option value="auto">অটো ডিমান্ড চার্জ</option>
+                                <option value="custom">কাস্টম ডিমান্ড চার্জ</option>
+                                <option value="none">ডিমান্ড চার্জ নেই</option>
+                            </select>
+                        </div>
+                        <small style="color: #666;">ডিফল্ট: মাসিক ডিমান্ড চার্জ (২৯৪ টাকা)</small>
+                    </div>
+                    
+                    <!-- রেজাল্ট সেকশন -->
+                    <div class="result" id="billResult" style="display: none;">
+                        <h4>বিল ক্যালকুলেশন রেজাল্ট</h4>
+                        <div class="bill-details">
+                            <div class="bill-item">
+                                <span>এনার্জি কস্ট:</span>
+                                <span id="energyCost">০.০০</span> টাকা
+                            </div>
+                            <div class="bill-item">
+                                <span>ডিমান্ড চার্জ:</span>
+                                <span id="demandChargeResult">০.০০</span> টাকা
+                            </div>
+                            <div class="bill-item">
+                                <span>ভ্যাট (৫%):</span>
+                                <span id="vatAmount">০.০০</span> টাকা
+                            </div>
+                            <div class="bill-item">
+                                <span>রিবেট (০.৮৫%):</span>
+                                <span id="rebateAmount">০.০০</span> টাকা
+                            </div>
+                            <div class="bill-item total">
+                                <span>নেট অ্যামাউন্ট:</span>
+                                <span id="netAmount">০.০০</span> টাকা
+                            </div>
+                        </div>
+
+                        <!-- আনুমানিক ইউনিট -->
+                        <div class="unit-estimation" id="unitEstimation" style="display: none;"></div>
+                        
+                        <!-- বিল অ্যাকশন বাটন -->
+                        <div class="bill-actions" style="display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;">
+                            <button onclick="saveBillHistory()" class="action-btn" style="padding: 8px 15px; background: #27ae60; color: white; border: none; border-radius: 5px; cursor: pointer;">💾 সেভ করুন</button>
+                            <button onclick="shareBillResult()" class="action-btn" style="padding: 8px 15px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer;">📤 শেয়ার করুন</button>
+                            <button onclick="showBillHistory()" class="action-btn" style="padding: 8px 15px; background: #9b59b6; color: white; border: none; border-radius: 5px; cursor: pointer;">📋 হিস্ট্রি দেখুন</button>
+                            <button onclick="calculateMonthlyAverage()" class="action-btn">📊 গড় বিল দেখুন</button>
+                        </div>
+
+                        <!-- ডিমান্ড চার্জ নোট -->
+                        <div class="bill-note">
+                            <small id="demandNote" style="font-style: italic; color: #7f8c8d;">ডিমান্ড চার্জ তথ্য</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="unitsTab" class="tab-content">
+                    <h3>🔢 ইউনিট ক্যালকুলেটর</h3>
+                    
+                    <!-- মিটার রিডিং সেকশন -->
+                    <div class="calculator-section">
+                        <div class="section-header">
+                            <h4>📊 মিটার রিডিং থেকে ইউনিট</h4>
+                            <div class="section-icon">🔍</div>
+                        </div>
+                        <div class="input-group-card">
+                            <div class="input-with-label">
+                                <label for="previousReading">পূর্ববর্তী রিডিং</label>
+                                <input type="number" id="previousReading" placeholder="0" class="modern-input">
+                            </div>
+                            <div class="input-with-label">
+                                <label for="currentReading">বর্তমান রিডিং</label>
+                                <input type="number" id="currentReading" placeholder="0" class="modern-input">
+                            </div>
+                            <button onclick="calculateUnits()" class="modern-btn primary">
+                                <span class="btn-icon">⚡</span>
+                                ইউনিট ক্যালকুলেট করুন
+                            </button>
+                        </div>
+                        <div class="result-card" id="unitResultCard">
+                            <div class="result-badge">
+                                <span class="result-label">ব্যবহৃত ইউনিট</span>
+                                <span class="result-value" id="calculatedUnits">0.00 kWh</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ইউনিট থেকে বিল সেকশন -->
+                    <div class="calculator-section">
+                        <div class="section-header">
+                            <h4>💰 ইউনিট থেকে বিল</h4>
+                            <div class="section-icon">🧮</div>
+                        </div>
+                        <div class="input-group-card">
+                            <div class="input-with-label">
+                                <label for="unitsConsumed">ইউনিট সংখ্যা</label>
+                                <input type="number" id="unitsConsumed" placeholder="ইউনিট সংখ্যা" class="modern-input">
+                            </div>
+                            <div class="input-with-label">
+                                <label for="unitsMonth">মাস নির্বাচন</label>
+                                <input type="month" id="unitsMonth" class="modern-input">
+                            </div>
+                            <button onclick="calculateBillFromUnits()" class="modern-btn success">
+                                <span class="btn-icon">📈</span>
+                                বিল ক্যালকুলেট করুন
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- রেজাল্ট সেকশন -->
+                    <div class="result-section" id="unitBillResult" style="display: none;">
+                        <div class="result-header">
+                            <div class="result-title">
+                                <span class="result-icon">🎯</span>
+                                <h4>বিল ক্যালকুলেশন রেজাল্ট</h4>
+                            </div>
+                            <div class="result-actions">
+                                <button onclick="useInDescoBill()" class="action-btn outline">
+                                    <span class="btn-icon">📋</span>
+                                    DESCO বিলে ব্যবহার
+                                </button>
+                                <button onclick="shareUnitResult()" class="action-btn outline">
+                                    <span class="btn-icon">📤</span>
+                                    শেয়ার
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="result-grid">
+                            <div class="result-item">
+                                <div class="result-label">ইউনিট সংখ্যা</div>
+                                <div class="result-value" id="resultUnits">0.00 kWh</div>
+                            </div>
+                            <div class="result-item">
+                                <div class="result-label">এনার্জি কস্ট</div>
+                                <div class="result-value" id="resultEnergyCost">০.০০ টাকা</div>
+                            </div>
+                            <div class="result-item highlight">
+                                <div class="result-label">আনুমানিক গ্রোস অ্যামাউন্ট</div>
+                                <div class="result-value" id="resultGrossAmount">০.০০ টাকা</div>
+                            </div>
+                        </div>
+                        
+                        <div class="result-footer">
+                            <small>💡 টিপ: এই অ্যামাউন্ট DESCO বিল ট্যাবে ব্যবহার করুন</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Editable Tariff Section at the Bottom -->
+            <div class="tariff-section">
+                <h3>ট্যারিফ রেট 
+                    <button onclick="toggleTariffEdit()" class="edit-btn" title="এডিট করুন">✏️ এডিট</button>
+                </h3>
+                
+                <div id="tariffDisplay">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>স্ল্যাব</th>
+                                <th>ইউনিট রেঞ্জ</th>
+                                <th>দর (প্রতি ইউনিট)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tariffTableBody">
+                            <!-- Tariff data will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div id="tariffEdit" style="display: none;">
+                    <div class="tariff-edit-container">
+                        <div id="tariffEditForm">
+                            <!-- Tariff edit form will be loaded here -->
+                        </div>
+                        <div class="tariff-edit-buttons">
+                            <button onclick="addNewTariffSlab()" class="add-btn">+ নতুন স্ল্যাব যোগ করুন</button>
+                            <button onclick="saveTariffRates()" class="save-btn">💾 সেভ করুন</button>
+                            <button onclick="cancelTariffEdit()" class="clear-btn">❌ বাতিল</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Auto Backup Modal -->
+        <div id="autoBackupModal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>অটো ব্যাকআপ সেটিংস</h3>
+                    <span class="close" onclick="closeAutoBackupModal()">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div class="input-group">
+                        <label>
+                            <input type="checkbox" id="enableAutoBackup" onchange="toggleAutoBackup()">
+                            অটো ব্যাকআপ সক্রিয় করুন
+                        </label>
+                    </div>
+                    <div id="autoBackupSettings" style="display: none;">
+                        <div class="input-group">
+                            <label for="backupTime">ব্যাকআপ সময়:</label>
+                            <input type="time" id="backupTime" value="23:00">
+                        </div>
+                        <div class="input-group">
+                            <label for="backupRetention">ব্যাকআপ সংরক্ষণ (দিন):</label>
+                            <input type="number" id="backupRetention" min="1" max="365" value="30">
+                        </div>
+                        <div class="backup-status">
+                            <p>পরবর্তী ব্যাকআপ: <span id="nextBackupTime">-</span></p>
+                            <p>সর্বশেষ ব্যাকআপ: <span id="lastBackupTime">-</span></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button onclick="saveAutoBackupSettings()" class="save-btn">সেভ করুন</button>
+                    <button onclick="closeAutoBackupModal()" class="clear-btn">বাতিল</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="script.js"></script>
+    
+    <!-- <script> -->
+        <!-- // PWA Installation -->
+        <!-- let deferredPrompt; -->
+        <!-- let installButton; -->
+
+        <!-- window.addEventListener('beforeinstallprompt', (e) => { -->
+            <!-- console.log('beforeinstallprompt event fired'); -->
+            <!-- e.preventDefault(); -->
+            <!-- deferredPrompt = e; -->
+            
+            <!-- // Show install button after 2 seconds -->
+            <!-- setTimeout(showInstallButton, 2000); -->
+        <!-- }); -->
+
+        <!-- function showInstallButton() { -->
+            <!-- // Remove existing button -->
+            <!-- const existingBtn = document.querySelector('.install-btn'); -->
+            <!-- if (existingBtn) existingBtn.remove(); -->
+            
+            <!-- // Create install button -->
+            <!-- installButton = document.createElement('button'); -->
+            <!-- installButton.className = 'install-btn'; -->
+            <!-- installButton.innerHTML = '📱 অ্যাপ ইন্সটল করুন'; -->
+            <!-- installButton.style.cssText = ` -->
+                <!-- position: fixed; -->
+                <!-- bottom: 20px; -->
+                <!-- right: 20px; -->
+                <!-- background: #27ae60; -->
+                <!-- color: white; -->
+                <!-- border: none; -->
+                <!-- padding: 12px 20px; -->
+                <!-- border-radius: 25px; -->
+                <!-- cursor: pointer; -->
+                <!-- z-index: 1000; -->
+                <!-- font-size: 14px; -->
+                <!-- box-shadow: 0 4px 12px rgba(0,0,0,0.3); -->
+            <!-- `; -->
+            
+            <!-- installButton.onclick = installApp; -->
+            <!-- document.body.appendChild(installButton); -->
+        <!-- } -->
+
+        <!-- function installApp() { -->
+            <!-- if (!deferredPrompt) { -->
+                <!-- alert('Install feature not available. Use browser menu.'); -->
+                <!-- return; -->
+            <!-- } -->
+            
+            <!-- // THIS IS THE IMPORTANT LINE - call prompt() -->
+            <!-- deferredPrompt.prompt(); -->
+            
+            <!-- deferredPrompt.userChoice.then((choiceResult) => { -->
+                <!-- if (choiceResult.outcome === 'accepted') { -->
+                    <!-- console.log('User installed the app'); -->
+                    <!-- if (installButton) installButton.style.display = 'none'; -->
+                <!-- } -->
+                <!-- deferredPrompt = null; -->
+            <!-- }); -->
+        <!-- } -->
+
+        <!-- // Service Worker -->
+        <!-- if ('serviceWorker' in navigator) { -->
+            <!-- navigator.serviceWorker.register('./service-worker.js') -->
+                <!-- .then(registration => { -->
+                    <!-- console.log('SW registered'); -->
+                <!-- }) -->
+                <!-- .catch(error => { -->
+                    <!-- console.log('SW failed:', error); -->
+                <!-- }); -->
+        <!-- } -->
+    <!-- </script> -->
+</body>
+</html>

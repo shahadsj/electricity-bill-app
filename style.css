@@ -1,0 +1,3648 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --color-primary: #3498db;
+    --color-accent: #9b59b6;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
+    min-height: 100vh;
+    padding: 20px;
+    transition: all 0.3s ease;
+}
+
+/* Dark Mode */
+body.dark-mode {
+    background: linear-gradient(135deg, #2c3e50, #34495e);
+    color: #ecf0f1;
+}
+
+body.dark-mode .container {
+    background: #2c3e50;
+    color: #ecf0f1;
+}
+
+body.dark-mode .tab-content {
+    background: #34495e;
+}
+
+body.dark-mode .monthly-item {
+    background: rgba(52, 73, 94, 0.95);
+}
+
+body.dark-mode .monthly-detail strong {
+    color: #ecf0f1;
+}
+
+/* High Contrast */
+body.high-contrast {
+    filter: contrast(1.3) brightness(1.1);
+}
+
+/* Large Text */
+body.large-text {
+    font-size: 1.2em;
+}
+
+body.large-text .input-group input,
+body.large-text button {
+    font-size: 1.1em;
+    padding: 14px;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+/* Header Controls */
+.header-controls {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.control-btn {
+    padding: 10px 15px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 2px solid var(--color-primary);
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.control-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+    background: var(--color-primary);
+    color: white;
+}
+
+/* Toast Notifications */
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+}
+
+.toast {
+    background: white;
+    padding: 15px 20px;
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    margin-bottom: 10px;
+    border-left: 4px solid #27ae60;
+    animation: slideIn 0.3s ease;
+    min-width: 300px;
+}
+
+.toast.error { border-left-color: #e74c3c; }
+.toast.warning { border-left-color: #f39c12; }
+.toast.info { border-left-color: #3498db; }
+
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+/* Progress Bar */
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #ecf0f1;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 10px;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(135deg, #27ae60, #2ecc71);
+    transition: width 0.5s ease;
+    border-radius: 4px;
+}
+
+/* Analytics */
+.analytics-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.analytics-controls button {
+    padding: 10px 20px;
+    background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.analytics-controls button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+}
+
+.chart-container {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    height: 400px;
+}
+
+.analytics-stats {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 10px;
+    border-left: 4px solid #9b59b6;
+}
+
+/* Search Box */
+.search-box {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.search-box input {
+    width: 100%;
+    padding: 12px 40px 12px 15px;
+    border: 2px solid #ddd;
+    border-radius: 25px;
+    font-size: 14px;
+    transition: border-color 0.3s;
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: #3498db;
+}
+
+.search-icon {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #7f8c8d;
+}
+
+/* Form Validation */
+.input-group input:invalid {
+    border-color: #e74c3c;
+    background: #fdf2f2;
+}
+
+.input-group input:valid {
+    border-color: #27ae60;
+}
+
+.validation-message {
+    color: #e74c3c;
+    font-size: 12px;
+    margin-top: 5px;
+    display: none;
+}
+
+.input-group input:invalid + .validation-message {
+    display: block;
+}
+
+/* Print Styles */
+@media print {
+    .no-print { display: none !important; }
+    .header-controls { display: none !important; }
+    .container { box-shadow: none; margin: 0; }
+    body { background: white; padding: 0; }
+    
+    .monthly-item {
+        break-inside: avoid;
+        border: 1px solid #ddd !important;
+    }
+    
+    .transaction-item {
+        border: 1px solid #ddd !important;
+    }
+}
+
+h1 {
+    background: linear-gradient(135deg, #2c3e50, #34495e);
+    color: white;
+    text-align: center;
+    padding: 25px;
+    font-size: 2.2em;
+    margin-bottom: 0;
+    width: 100%; /* Full width */
+    box-sizing: border-box; /* Padding সহ full width */
+    border-radius: 0; /* যদি corner round না চান */
+    /* অথবা border-radius: 10px; যদি rounded corners চান */
+}
+
+.info-section {
+    background: #f8f9fa;
+    padding: 20px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+/* মিটার তথ্য এডিট স্টাইল */
+.edit-btn {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    margin-left: 15px;
+    transition: all 0.3s ease;
+}
+
+.edit-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 3px 10px rgba(52, 152, 219, 0.3);
+}
+
+.meter-edit-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+    justify-content: flex-end;
+}
+
+.meter-edit-buttons button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.meter-edit-buttons .save-btn {
+    background: linear-gradient(135deg, #27ae60, #2ecc71);
+    color: white;
+}
+
+.meter-edit-buttons .save-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 3px 10px rgba(39, 174, 96, 0.3);
+}
+
+.meter-edit-buttons .clear-btn {
+    background: linear-gradient(135deg, #95a5a6, #7f8c8d);
+    color: white;
+}
+
+.meter-edit-buttons .clear-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 3px 10px rgba(149, 165, 166, 0.3);
+}
+
+/* Dark mode support for meter info */
+body.dark-mode .meter-info {
+    background: #34495e;
+    color: #ecf0f1;
+}
+
+body.dark-mode .meter-info p {
+    color: #ecf0f1;
+}
+
+.meter-info {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 4px solid #3498db;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.meter-info p {
+    margin: 0;
+    font-size: 1.1em;
+    color: #2c3e50;
+}
+
+.settings-section {
+    background: #fff;
+    padding: 25px;
+    border-bottom: 1px solid #eee;
+}
+
+.settings-section h3 {
+    color: #2c3e50;
+    margin-bottom: 20px;
+    font-size: 1.4em;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 10px;
+}
+
+.settings-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.settings-form .input-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.settings-form label {
+    font-weight: 600;
+    margin-bottom: 5px;
+    color: #2c3e50;
+}
+
+.settings-form input {
+    padding: 12px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 16px;
+    transition: border-color 0.3s;
+}
+
+.settings-form input:focus {
+    outline: none;
+    border-color: #3498db;
+}
+
+.settings-buttons {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 15px;
+    margin-top: 10px;
+}
+
+.settings-buttons button {
+    flex: 1;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.settings-buttons button:first-child {
+    background: linear-gradient(135deg, #27ae60, #2ecc71);
+    color: white;
+}
+
+.settings-buttons button:first-child:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(39, 174, 96, 0.3);
+}
+
+.settings-buttons .clear-btn {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: white;
+}
+
+.settings-buttons .clear-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(231, 76, 60, 0.3);
+}
+
+.balance-section {
+    background: #fff;
+    padding: 25px;
+    border-bottom: 1px solid #eee;
+}
+
+.balance-section h3 {
+    color: #2c3e50;
+    margin-bottom: 20px;
+    font-size: 1.4em;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 10px;
+}
+
+.input-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.input-group input {
+    flex: 1;
+    min-width: 200px;
+    padding: 12px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 16px;
+}
+
+.input-group button {
+    padding: 12px 20px;
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.input-group button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+}
+
+.balance-display {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 10px;
+    border-left: 4px solid #e74c3c;
+}
+
+.balance-display p {
+    margin: 8px 0;
+    font-size: 1.1em;
+}
+
+.current-balance {
+    font-size: 1.3em !important;
+    font-weight: bold;
+    color: #e74c3c;
+}
+
+.calculation-section {
+    padding: 25px;
+}
+
+.tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #ecf0f1;
+    padding-bottom: 10px;
+}
+
+.tab-button {
+    padding: 12px 25px;
+    background: #ecf0f1;
+    border: none;
+    border-radius: 8px 8px 0 0;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+
+.tab-button.active {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+}
+
+.tab-content {
+    display: none;
+    padding: 25px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    margin-top: 10px;
+}
+
+.tab-content.active {
+    display: block;
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.result {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    border-left: 4px solid #27ae60;
+    margin-top: 15px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.report-controls {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.report-controls button {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.report-controls button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+
+.clear-btn {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: white;
+}
+
+.clear-btn:hover {
+    box-shadow: 0 5px 15px rgba(231, 76, 60, 0.3);
+}
+
+.export-btn {
+    background: linear-gradient(135deg, #27ae60, #2ecc71);
+    color: white;
+}
+
+.export-btn:hover {
+    box-shadow: 0 5px 15px rgba(39, 174, 96, 0.3);
+}
+
+.print-btn {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+}
+
+.print-btn:hover {
+    box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+}
+
+.report-summary {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.summary-item {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    border-left: 4px solid #3498db;
+}
+
+.summary-item span:first-child {
+    font-weight: 600;
+    color: #2c3e50;
+    display: block;
+    margin-bottom: 5px;
+}
+
+.summary-item span:last-child {
+    font-size: 1.2em;
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+/* মাসিক সারাংশ স্টাইল */
+.monthly-summary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 20px;
+    border-radius: 15px;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    color: white;
+}
+
+.monthly-summary h4 {
+    color: white;
+    text-align: center;
+    font-size: 1.5em;
+    margin-bottom: 20px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    border-bottom: 2px solid rgba(255,255,255,0.3);
+    padding-bottom: 10px;
+}
+
+.monthly-item {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+    border-left: 6px solid #27ae60;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.monthly-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+}
+
+.monthly-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 8px;
+}
+
+.monthly-detail {
+    padding: 8px 12px;
+    font-size: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #f0f0f0;
+    margin-bottom: 4px;
+}
+
+.monthly-detail:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.monthly-detail strong {
+    color: #2c3e50;
+    font-size: 14px;
+    font-weight: 600;
+    min-width: 120px;
+}
+
+.monthly-detail span {
+    font-weight: 600;
+    text-align: right;
+    font-size: 14px;
+    min-width: 100px;
+}
+
+/* মাসের নাম স্টাইল */
+.monthly-detail:first-child {
+    grid-column: 1 / -1;
+    text-align: center;
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    border: none;
+    display: block;
+}
+
+.monthly-detail:first-child strong {
+    color: white;
+    font-size: 18px;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    min-width: auto;
+}
+
+/* বিভিন্ন টাইপের ভ্যালুর জন্য কালার */
+.monthly-detail:nth-child(2) span { /* মোট রিচার্জ */
+    color: #27ae60;
+    font-weight: 700;
+}
+
+.monthly-detail:nth-child(3) span { /* ব্যবহারযোগ্য */
+    color: #2980b9;
+    font-weight: 700;
+}
+
+.monthly-detail:nth-child(4) span { /* ডিমান্ড চার্জ */
+    color: #e74c3c;
+    font-weight: 700;
+}
+
+.monthly-detail:nth-child(5) span { /* ভ্যাট */
+    color: #f39c12;
+    font-weight: 700;
+}
+
+.monthly-detail:nth-child(6) span { /* রিবেট */
+    color: #9b59b6;
+    font-weight: 700;
+}
+
+.monthly-detail:nth-child(7) span { /* রিচার্জ সংখ্যা */
+    color: #34495e;
+    font-weight: 700;
+    background: #ecf0f1;
+    padding: 4px 10px;
+    border-radius: 15px;
+    font-size: 12px;
+}
+
+.transaction-list {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.transaction-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background: white;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    border-left: 4px solid #3498db;
+}
+
+.transaction-details {
+    flex: 1;
+}
+
+.transaction-type {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.transaction-deposit {
+    color: #27ae60;
+}
+
+.transaction-expense {
+    color: #e74c3c;
+}
+
+.transaction-info {
+    color: #7f8c8d;
+    font-size: 0.9em;
+}
+
+.transaction-amount {
+    text-align: right;
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+.transaction-balance {
+    font-size: 0.8em;
+    color: #7f8c8d;
+    margin-top: 5px;
+}
+
+.tariff-section {
+    background: #fff;
+    padding: 25px;
+    border-top: 1px solid #eee;
+}
+
+.tariff-section h3 {
+    color: #2c3e50;
+    margin-bottom: 20px;
+    font-size: 1.4em;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 10px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+th, td {
+    padding: 15px;
+    text-align: left;
+    border-bottom: 1px solid #ecf0f1;
+}
+
+th {
+    background: linear-gradient(135deg, #34495e, #2c3e50);
+    color: white;
+    font-weight: 600;
+}
+
+tr:hover {
+    background: #f8f9fa;
+}
+
+/* রেস্পন্সিভ ডিজাইন */
+@media (max-width: 768px) {
+    .container {
+        margin: 10px;
+        border-radius: 10px;
+    }
+    
+    h1 {
+        font-size: 1.8em;
+        padding: 20px;
+    }
+    
+    .header-controls {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .control-btn {
+        width: 200px;
+    }
+    
+    .input-group {
+        flex-direction: column;
+    }
+    
+    .input-group input,
+    .input-group button {
+        width: 100%;
+        min-width: auto;
+    }
+    
+    .tabs {
+        flex-direction: column;
+    }
+    
+    .tab-button {
+        border-radius: 8px;
+        margin-bottom: 5px;
+    }
+    
+    .transaction-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .transaction-amount {
+        text-align: left;
+        margin-top: 10px;
+    }
+    
+    .settings-form {
+        grid-template-columns: 1fr;
+    }
+    
+    .settings-buttons {
+        flex-direction: column;
+    }
+    
+    .summary-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .monthly-details {
+        grid-template-columns: 1fr;
+        gap: 6px;
+    }
+    
+    .monthly-detail {
+        font-size: 13px;
+        padding: 6px 8px;
+        margin-bottom: 3px;
+    }
+    
+    .monthly-detail strong {
+        font-size: 13px;
+        min-width: 100px;
+    }
+    
+    .monthly-detail span {
+        font-size: 13px;
+        min-width: 80px;
+    }
+    
+    .monthly-detail:first-child strong {
+        font-size: 16px;
+    }
+    
+    .monthly-summary h4 {
+        font-size: 1.3em;
+    }
+    
+    .report-controls {
+        flex-direction: column;
+    }
+    
+    .report-controls button {
+        width: 100%;
+    }
+    
+    .analytics-controls {
+        flex-direction: column;
+    }
+    
+    .analytics-controls button {
+        width: 100%;
+    }
+    
+    .chart-container {
+        height: 300px;
+    }
+}
+
+@media (max-width: 480px) {
+    .monthly-detail {
+        flex-direction: column;
+        align-items: flex-start;
+        text-align: left;
+        padding: 8px 0;
+    }
+    
+    .monthly-detail strong {
+        min-width: auto;
+        margin-bottom: 2px;
+    }
+    
+    .monthly-detail span {
+        text-align: left;
+        min-width: auto;
+    }
+    
+    .monthly-detail:first-child {
+        text-align: center;
+    }
+    
+    .monthly-detail:first-child strong {
+        margin-bottom: 0;
+    }
+    
+    .transaction-item {
+        padding: 12px;
+    }
+    
+    .transaction-info {
+        font-size: 0.8em;
+    }
+    
+    .balance-display {
+        padding: 15px;
+    }
+    
+    .balance-display p {
+        font-size: 1em;
+    }
+    
+    .current-balance {
+        font-size: 1.2em !important;
+    }
+    
+    .settings-buttons button {
+        padding: 10px 15px;
+        font-size: 14px;
+    }
+}
+
+/* স্ক্রলবার স্টাইল */
+.transaction-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.transaction-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.transaction-list::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.transaction-list::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* লোডিং এনিমেশন */
+@keyframes pulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
+}
+
+.loading {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* ফোকাস স্টাইল */
+button:focus,
+input:focus {
+    outline: 2px solid #3498db;
+    outline-offset: 2px;
+}
+
+/* ডিজেবল্ড স্টেট */
+button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+button:disabled:hover {
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* নির্বাচন স্টাইল */
+::selection {
+    background: #3498db;
+    color: white;
+}
+
+::-moz-selection {
+    background: #3498db;
+    color: white;
+}
+
+/* Editable Tariff Styles */
+.tariff-section {
+    background: #fff;
+    padding: 25px;
+    border-top: 1px solid #eee;
+}
+
+.tariff-section h3 {
+    color: #2c3e50;
+    margin-bottom: 20px;
+    font-size: 1.4em;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.tariff-edit-container {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    border: 2px solid #3498db;
+}
+
+.tariff-edit-form {
+    margin-bottom: 20px;
+}
+
+.tariff-slab-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr auto;
+    gap: 10px;
+    align-items: end;
+    margin-bottom: 15px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #3498db;
+}
+
+.tariff-slab-row > div {
+    display: flex;
+    flex-direction: column;
+}
+
+.tariff-slab-row label {
+    font-weight: 600;
+    margin-bottom: 5px;
+    color: #2c3e50;
+    font-size: 12px;
+}
+
+.tariff-slab-row input {
+    padding: 10px;
+    border: 2px solid #ddd;
+    border-radius: 5px;
+    font-size: 14px;
+    width: 100%;
+}
+
+.tariff-slab-row input:focus {
+    outline: none;
+    border-color: #3498db;
+}
+
+.remove-slab-btn {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    height: fit-content;
+}
+
+.remove-slab-btn:hover {
+    background: #c0392b;
+    transform: translateY(-1px);
+}
+
+.tariff-edit-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: flex-end;
+    margin-top: 20px;
+    flex-wrap: wrap;
+}
+
+.tariff-edit-buttons button {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.add-btn {
+    background: linear-gradient(135deg, #27ae60, #2ecc71);
+    color: white;
+}
+
+.add-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(39, 174, 96, 0.3);
+}
+
+.save-btn {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+}
+
+.save-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+}
+
+.clear-btn {
+    background: linear-gradient(135deg, #95a5a6, #7f8c8d);
+    color: white;
+}
+
+.clear-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(149, 165, 166, 0.3);
+}
+
+/* Modal Styles */
+.modal {
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+    padding: 20px;
+    border-radius: 15px 15px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: white;
+    border: none;
+    padding: 0;
+}
+
+.close {
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.close:hover {
+    transform: scale(1.2);
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.modal-footer {
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 0 0 15px 15px;
+    display: flex;
+    gap: 15px;
+    justify-content: flex-end;
+}
+
+.backup-status {
+    background: #e8f4fd;
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 4px solid #3498db;
+    margin-top: 15px;
+}
+
+.backup-status p {
+    margin: 5px 0;
+    font-size: 14px;
+}
+
+/* Dark mode support for new elements */
+body.dark-mode .tariff-edit-container {
+    background: #34495e;
+    color: #ecf0f1;
+}
+
+body.dark-mode .tariff-slab-row {
+    background: #2c3e50;
+}
+
+body.dark-mode .tariff-slab-row label {
+    color: #ecf0f1;
+}
+
+body.dark-mode .modal-content {
+    background: #34495e;
+    color: #ecf0f1;
+}
+
+body.dark-mode .modal-footer {
+    background: #2c3e50;
+}
+
+body.dark-mode .backup-status {
+    background: #2c3e50;
+    color: #ecf0f1;
+}
+
+
+/* Responsive design for tariff editor */
+@media (max-width: 768px) {
+    .tariff-slab-row {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    
+    .tariff-edit-buttons {
+        flex-direction: column;
+    }
+    
+    .tariff-edit-buttons button {
+        width: 100%;
+    }
+    
+    .modal-content {
+        width: 95%;
+        margin: 20px;
+    }
+    
+    .tariff-section h3 {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .tariff-slab-row {
+        padding: 10px;
+    }
+    
+    .tariff-slab-row input {
+        padding: 8px;
+        font-size: 12px;
+    }
+    
+    .tariff-edit-buttons button {
+        padding: 10px 15px;
+        font-size: 12px;
+    }
+}
+
+/* ================================
+   ডিলিট বাটন এবং ট্রানজেকশন স্টাইল
+   ================================ */
+
+/* ডিলিট বাটন স্টাইল */
+.delete-btn {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    margin-left: 10px;
+    transition: all 0.3s ease;
+    min-width: 40px;
+}
+
+.delete-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 3px 10px rgba(231, 76, 60, 0.3);
+    background: #c0392b;
+}
+
+.transaction-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-left: 15px;
+}
+
+/* ট্রানজেকশন আইটেম স্টাইল আপডেট */
+.transaction-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background: white;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    border-left: 4px solid #3498db;
+}
+
+.transaction-details {
+    flex: 1;
+}
+
+/* মাসিক সারাংশে ডিলিট বাটন */
+.monthly-item {
+    position: relative;
+}
+
+.monthly-item .delete-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+}
+
+/* রেস্পন্সিভ ডিজাইনের জন্য */
+@media (max-width: 768px) {
+    .transaction-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .transaction-actions {
+        margin-left: 0;
+        margin-top: 10px;
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .monthly-item .delete-btn {
+        position: static;
+        margin-top: 10px;
+    }
+}
+
+/* রিসেট বাটন স্টাইল */
+.bill-reset-btn {
+    background: linear-gradient(135deg, #95a5a6, #7f8c8d);
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    margin-left: 10px;
+    transition: all 0.3s ease;
+}
+
+.bill-reset-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 3px 10px rgba(149, 165, 166, 0.3);
+    background: #7f8c8d;
+}
+
+/* এডভান্সড অপশন স্টাইল */
+.advanced-options {
+    transition: all 0.3s ease;
+}
+
+.advanced-options:hover {
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+select {
+    background: white;
+    cursor: pointer;
+}
+
+select:focus {
+    outline: none;
+    border-color: #3498db;
+}
+
+/* DESCO বিল রেজাল্ট স্টাইল */
+.bill-details {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    margin: 10px 0;
+}
+
+.bill-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.bill-item:last-child {
+    border-bottom: none;
+}
+
+.bill-item.total {
+    font-weight: bold;
+    font-size: 1.1em;
+    color: #e74c3c;
+    border-top: 2px solid #3498db;
+    padding-top: 12px;
+    margin-top: 8px;
+}
+
+.bill-note {
+    text-align: center;
+    margin-top: 10px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 5px;
+}
+
+/* মাস পিকার স্টাইল */
+.month-picker {
+    text-align: center;
+}
+
+.year-selector {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.nav-btn {
+    background: #3498db;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.nav-btn:hover {
+    background: #2980b9;
+    transform: scale(1.1);
+}
+
+.months-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    padding: 10px;
+}
+
+.month-btn {
+    padding: 12px 8px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    background: white;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    text-align: center;
+}
+
+.month-btn:hover {
+    border-color: #3498db;
+    background: #e8f4fd;
+    transform: translateY(-2px);
+}
+
+.month-btn.selected {
+    background: #3498db;
+    color: white;
+    border-color: #3498db;
+}
+
+.month-btn.current {
+    border-color: #27ae60;
+    background: #e8f6f3;
+}
+
+.date-selector {
+    position: relative;
+}
+
+.date-selector input {
+    cursor: pointer;
+}
+
+.calendar-icon {
+    transition: all 0.3s ease;
+}
+
+.calendar-icon:hover {
+    transform: scale(1.2);
+}
+
+/* বাংলা মাসের নামের জন্য */
+.bangla-month {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.average-badge {
+    background: linear-gradient(135deg, #27ae60, #2ecc71);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.monthly-stats {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 10px 0;
+    border-left: 4px solid #3498db;
+}
+
+/* যন্ত্রপাতির ক্যালকুলেটর স্টাইল */
+.appliance-tab {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 15px;
+    padding: 20px;
+    margin: 10px 0;
+}
+
+.appliance-selector {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.appliance-selector h4 {
+    color: #2c3e50;
+    margin-bottom: 15px;
+    font-size: 1.2em;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 8px;
+}
+
+.quick-appliances {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 10px;
+    margin: 15px 0;
+}
+
+.appliance-btn {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+    border: none;
+    padding: 12px 8px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+    min-height: 60px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 3px 10px rgba(52, 152, 219, 0.3);
+}
+
+.appliance-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+    background: linear-gradient(135deg, #2980b9, #21618c);
+}
+
+.appliance-btn:active {
+    transform: translateY(-1px);
+}
+
+.appliance-btn .appliance-name {
+    font-size: 12px;
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.appliance-btn .appliance-watt {
+    font-size: 10px;
+    opacity: 0.9;
+    background: rgba(255,255,255,0.2);
+    padding: 2px 6px;
+    border-radius: 8px;
+}
+
+.selected-appliances {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    margin: 20px 0;
+}
+
+.appliance-item {
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    padding: 15px;
+    margin: 10px 0;
+    border-radius: 10px;
+    border-left: 5px solid #3498db;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.appliance-item:hover {
+    transform: translateX(5px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.appliance-info {
+    flex: 2;
+}
+
+.appliance-name {
+    font-weight: bold;
+    color: #2c3e50;
+    font-size: 14px;
+    margin-bottom: 4px;
+}
+
+.appliance-specs {
+    color: #7f8c8d;
+    font-size: 12px;
+}
+
+.appliance-controls {
+    flex: 1;
+    text-align: center;
+}
+
+.hours-input {
+    width: 70px;
+    padding: 8px;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    text-align: center;
+    font-size: 14px;
+    transition: border-color 0.3s ease;
+}
+
+.hours-input:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+}
+
+.appliance-cost {
+    flex: 1;
+    text-align: right;
+}
+
+.daily-cost {
+    color: #e74c3c;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.cost-label {
+    color: #7f8c8d;
+    font-size: 11px;
+}
+
+.remove-appliance {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-left: 10px;
+    transition: all 0.3s ease;
+}
+
+.remove-appliance:hover {
+    transform: scale(1.1);
+    box-shadow: 0 3px 8px rgba(231, 76, 60, 0.4);
+}
+
+.calculation-options {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    padding: 20px;
+    border-radius: 12px;
+    margin: 20px 0;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.calculation-options h4 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.option-input {
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.option-input:focus {
+    outline: none;
+    box-shadow: 0 0 8px rgba(255,255,255,0.5);
+}
+
+.calculate-btn {
+    background: linear-gradient(135deg, #27ae60, #2ecc71);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    box-shadow: 0 3px 10px rgba(39, 174, 96, 0.3);
+}
+
+.calculate-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(39, 174, 96, 0.4);
+}
+
+.appliance-result {
+    background: white;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    margin: 20px 0;
+}
+
+.summary-card {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    padding: 25px;
+    border-radius: 12px;
+    text-align: center;
+    margin-bottom: 25px;
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.3);
+}
+
+.summary-title {
+    margin: 0 0 15px 0;
+    font-size: 1.4em;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 15px;
+}
+
+.summary-item {
+    background: rgba(255,255,255,0.2);
+    padding: 12px;
+    border-radius: 8px;
+    backdrop-filter: blur(10px);
+}
+
+.summary-amount {
+    font-size: 1.3em;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.breakdown-item {
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    padding: 20px;
+    margin: 15px 0;
+    border-radius: 10px;
+    border-left: 5px solid #3498db;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+.breakdown-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+}
+
+.breakdown-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.breakdown-name {
+    font-weight: bold;
+    color: #2c3e50;
+    font-size: 15px;
+}
+
+.breakdown-percentage {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 15px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.progress-bar {
+    background: #ecf0f1;
+    height: 8px;
+    border-radius: 4px;
+    margin: 8px 0;
+    overflow: hidden;
+}
+
+.progress-fill {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+.breakdown-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+    text-align: center;
+}
+
+.stat-item {
+    background: white;
+    padding: 8px;
+    border-radius: 6px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.environment-card {
+    background: linear-gradient(135deg, #27ae60, #2ecc71);
+    color: white;
+    padding: 20px;
+    border-radius: 12px;
+    margin-top: 20px;
+    box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3);
+}
+
+.energy-tips {
+    background: linear-gradient(135deg, #ffeaa7, #fab1a0);
+    padding: 20px;
+    border-radius: 12px;
+    margin-top: 20px;
+    box-shadow: 0 4px 15px rgba(255, 234, 167, 0.3);
+}
+
+.energy-tips h4 {
+    color: #2d3436;
+    margin-top: 0;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.tip-item {
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(45, 52, 54, 0.1);
+    color: #2d3436;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.tip-item:hover {
+    transform: translateX(5px);
+    color: #e17055;
+}
+
+.tip-item:last-child {
+    border-bottom: none;
+}
+
+/* রেস্পন্সিভ ডিজাইন */
+@media (max-width: 768px) {
+    .quick-appliances {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .appliance-item {
+        flex-direction: column;
+        text-align: center;
+        gap: 10px;
+    }
+    
+    .appliance-info,
+    .appliance-controls,
+    .appliance-cost {
+        flex: none;
+        width: 100%;
+    }
+    
+    .summary-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .breakdown-stats {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .quick-appliances {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .appliance-btn {
+        min-height: 50px;
+        padding: 8px 4px;
+    }
+    
+    .appliance-btn .appliance-name {
+        font-size: 10px;
+    }
+}
+
+/* ইউনিট ক্যালকুলেটর স্টাইল */
+.calculator-section {
+    background: white;
+    border-radius: 16px;
+    padding: 25px;
+    margin: 20px 0;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    border: 1px solid #e8f4fd;
+    transition: all 0.3s ease;
+}
+
+.calculator-section:hover {
+    box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+    transform: translateY(-2px);
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #f8f9fa;
+}
+
+.section-header h4 {
+    color: #2c3e50;
+    margin: 0;
+    font-size: 1.3em;
+    font-weight: 600;
+}
+
+.section-icon {
+    font-size: 24px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    padding: 10px;
+    border-radius: 12px;
+    color: white;
+}
+
+.input-group-card {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 15px;
+    align-items: end;
+}
+
+.input-with-label {
+    display: flex;
+    flex-direction: column;
+}
+
+.input-with-label label {
+    font-weight: 600;
+    color: #5a6c7d;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.modern-input {
+    padding: 14px 16px;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    background: #fafbfc;
+}
+
+.modern-input:focus {
+    outline: none;
+    border-color: #3498db;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.modern-btn {
+    padding: 14px 20px;
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+}
+
+.modern-btn.primary {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+    box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+}
+
+.modern-btn.success {
+    background: linear-gradient(135deg, #27ae60, #2ecc71);
+    color: white;
+    box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3);
+}
+
+.modern-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+}
+
+.btn-icon {
+    font-size: 16px;
+}
+
+.result-card {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    padding: 20px;
+    border-radius: 12px;
+    margin-top: 15px;
+    text-align: center;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.result-badge {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.result-label {
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+.result-value {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+/* রেজাল্ট সেকশন */
+.result-section {
+    background: linear-gradient(135deg, #1a2980, #26d0ce);
+    color: white;
+    border-radius: 20px;
+    overflow: hidden;
+    margin: 25px 0;
+    box-shadow: 0 10px 40px rgba(26, 41, 128, 0.3);
+}
+
+.result-header {
+    background: rgba(255,255,255,0.1);
+    padding: 25px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    backdrop-filter: blur(10px);
+}
+
+.result-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.result-title h4 {
+    margin: 0;
+    font-size: 1.4em;
+}
+
+.result-icon {
+    font-size: 28px;
+}
+
+.result-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.action-btn.outline {
+    background: transparent;
+    color: white;
+    border: 2px solid rgba(255,255,255,0.3);
+    padding: 10px 20px;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+}
+
+.action-btn.outline:hover {
+    background: rgba(255,255,255,0.2);
+    border-color: rgba(255,255,255,0.5);
+    transform: translateY(-2px);
+}
+
+.result-grid {
+    padding: 30px 25px;
+    display: grid;
+    gap: 20px;
+}
+
+.result-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+}
+
+.result-item:last-child {
+    border-bottom: none;
+}
+
+.result-item.highlight {
+    background: rgba(255,255,255,0.1);
+    padding: 20px;
+    border-radius: 12px;
+    margin: 10px -20px;
+    border: none;
+}
+
+.result-item.highlight .result-value {
+    color: #ffd700;
+    font-size: 28px;
+}
+
+.result-footer {
+    background: rgba(0,0,0,0.2);
+    padding: 15px 25px;
+    text-align: center;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+/* রেস্পন্সিভ ডিজাইন */
+@media (max-width: 768px) {
+    .input-group-card {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .result-header {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+    
+    .result-actions {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .result-item {
+        flex-direction: column;
+        text-align: center;
+        gap: 8px;
+    }
+    
+    .section-header {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .calculator-section {
+        padding: 20px 15px;
+        margin: 15px 0;
+    }
+    
+    .modern-btn {
+        padding: 12px 16px;
+        font-size: 14px;
+    }
+    
+    .result-grid {
+        padding: 20px 15px;
+    }
+}
+
+/* ডিজিটাল মিটার স্টাইল */
+.digital-meter-container {
+    position: fixed;
+    top: 120px;
+    right: 20px;
+    width: 320px;
+    z-index: 100;
+}
+
+.digital-meter {
+    background: linear-gradient(135deg, #1a1a1a, #2d3436);
+    color: white;
+    border-radius: 20px;
+    padding: 0;
+    box-shadow: 
+        0 10px 40px rgba(0,0,0,0.3),
+        0 0 0 1px #333,
+        inset 0 1px 0 rgba(255,255,255,0.1);
+    border: 2px solid #444;
+    overflow: hidden;
+    font-family: 'Courier New', monospace;
+}
+
+.meter-header {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    padding: 20px;
+    text-align: center;
+    border-bottom: 2px solid #444;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
+.meter-icon {
+    font-size: 24px;
+    background: rgba(255,255,255,0.2);
+    padding: 8px;
+    border-radius: 10px;
+}
+
+.meter-title {
+    font-size: 18px;
+    font-weight: bold;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.meter-display {
+    padding: 25px;
+    background: #000;
+    margin: 10px;
+    border-radius: 12px;
+    border: 2px solid #333;
+    box-shadow: inset 0 0 20px rgba(0,255,0,0.1);
+}
+
+.current-reading {
+    text-align: center;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #001a00;
+    border-radius: 8px;
+    border: 1px solid #00ff00;
+    box-shadow: 0 0 15px rgba(0,255,0,0.2);
+}
+
+.reading-value {
+    font-size: 32px;
+    font-weight: bold;
+    color: #00ff00;
+    text-shadow: 0 0 10px #00ff00;
+    letter-spacing: 2px;
+    font-family: 'Digital-7', 'Courier New', monospace;
+}
+
+.reading-unit {
+    font-size: 14px;
+    color: #7f8c8d;
+    margin-left: 8px;
+}
+
+.meter-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.stat-item {
+    background: #1a1a1a;
+    padding: 12px;
+    border-radius: 8px;
+    text-align: center;
+    border: 1px solid #333;
+}
+
+.stat-label {
+    display: block;
+    font-size: 11px;
+    color: #95a5a6;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+}
+
+.stat-value {
+    display: block;
+    font-size: 14px;
+    font-weight: bold;
+    color: #3498db;
+}
+
+.meter-controls {
+    padding: 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    background: #1a1a1a;
+    border-top: 2px solid #333;
+}
+
+.meter-btn {
+    padding: 12px 16px;
+    border: none;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+}
+
+.meter-btn.outline {
+    background: transparent;
+    border: 2px solid #3498db;
+    color: #3498db;
+}
+
+.meter-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+}
+
+.meter-btn.outline:hover {
+    background: rgba(52, 152, 219, 0.1);
+}
+
+.btn-icon {
+    font-size: 14px;
+}
+
+/* মিটার হিস্ট্রি মডাল */
+.meter-history-item {
+    background: #f8f9fa;
+    padding: 15px;
+    margin: 8px 0;
+    border-radius: 8px;
+    border-left: 4px solid #3498db;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.meter-history-date {
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.meter-history-reading {
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+/* রেস্পন্সিভ ডিজাইন */
+@media (max-width: 1200px) {
+    .digital-meter-container {
+        position: static;
+        width: 100%;
+        max-width: 400px;
+        margin: 20px auto;
+    }
+}
+
+@media (max-width: 768px) {
+    .digital-meter-container {
+        max-width: 100%;
+    }
+    
+    .meter-stats {
+        grid-template-columns: 1fr;
+    }
+    
+    .meter-controls {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ডিজিটাল ফন্ট ইফেক্ট */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+.reading-value {
+    font-family: 'Orbitron', 'Courier New', monospace;
+}
+
+/* ডিজিটাল মিটার স্টাইল - কম্প্যাক্ট ভার্সন */
+.digital-meter-container {
+    position: fixed;
+    top: 120px;
+    right: 20px;
+    width: 280px; /* কমিয়ে দিলাম */
+    z-index: 100;
+}
+
+.digital-meter {
+    background: linear-gradient(135deg, #1a1a1a, #2d3436);
+    color: white;
+    border-radius: 16px; /* কমিয়ে দিলাম */
+    padding: 0;
+    box-shadow: 
+        0 6px 20px rgba(0,0,0,0.2), /* হালকা শ্যাডো */
+        0 0 0 1px #333,
+        inset 0 1px 0 rgba(255,255,255,0.1);
+    border: 1px solid #444; /* পাতলা বর্ডার */
+    overflow: hidden;
+    font-family: 'Courier New', monospace;
+}
+
+.meter-header {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    padding: 15px; /* কমিয়ে দিলাম */
+    text-align: center;
+    border-bottom: 1px solid #444;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px; /* কম গ্যাপ */
+}
+
+.meter-icon {
+    font-size: 18px; /* ছোট আইকন */
+    background: rgba(255,255,255,0.2);
+    padding: 6px; /* কম প্যাডিং */
+    border-radius: 8px;
+}
+
+.meter-title {
+    font-size: 14px; /* ছোট ফন্ট */
+    font-weight: bold;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+.meter-display {
+    padding: 15px; /* কম প্যাডিং */
+    background: #000;
+    margin: 8px; /* কম মার্জিন */
+    border-radius: 10px;
+    border: 1px solid #333; /* পাতলা বর্ডার */
+    box-shadow: inset 0 0 10px rgba(0,255,0,0.1);
+}
+
+.current-reading {
+    text-align: center;
+    margin-bottom: 15px;
+    padding: 12px; /* কম প্যাডিং */
+    background: #001a00;
+    border-radius: 6px;
+    border: 1px solid #00ff00;
+    box-shadow: 0 0 8px rgba(0,255,0,0.15);
+}
+
+.reading-value {
+    font-size: 20px; /* ছোট ফন্ট */
+    font-weight: bold;
+    color: #00ff00;
+    text-shadow: 0 0 5px #00ff00;
+    letter-spacing: 1px;
+    font-family: 'Orbitron', 'Courier New', monospace;
+}
+
+.reading-unit {
+    font-size: 12px; /* ছোট ফন্ট */
+    color: #7f8c8d;
+    margin-left: 6px;
+}
+
+.meter-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px; /* কম গ্যাপ */
+    margin-top: 12px;
+}
+
+.stat-item {
+    background: #1a1a1a;
+    padding: 10px; /* কম প্যাডিং */
+    border-radius: 6px;
+    text-align: center;
+    border: 1px solid #333;
+}
+
+.stat-label {
+    display: block;
+    font-size: 10px; /* আরও ছোট */
+    color: #95a5a6;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+}
+
+.stat-value {
+    display: block;
+    font-size: 12px; /* ছোট ফন্ট */
+    font-weight: bold;
+    color: #3498db;
+}
+
+.meter-controls {
+    padding: 15px; /* কম প্যাডিং */
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px; /* কম গ্যাপ */
+    background: #1a1a1a;
+    border-top: 1px solid #333;
+}
+
+.meter-btn {
+    padding: 10px 12px; /* কম প্যাডিং */
+    border: none;
+    border-radius: 8px;
+    font-size: 11px; /* ছোট ফন্ট */
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px; /* কম গ্যাপ */
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+}
+
+.meter-btn.outline {
+    background: transparent;
+    border: 1px solid #3498db; /* পাতলা বর্ডার */
+    color: #3498db;
+}
+
+.meter-btn:hover {
+    transform: translateY(-1px); /* কম এনিমেশন */
+    box-shadow: 0 3px 10px rgba(52, 152, 219, 0.3);
+}
+
+.btn-icon {
+    font-size: 12px; /* ছোট আইকন */
+}
+
+/* আরও কম্প্যাক্ট ভার্সন */
+.digital-meter-compact {
+    width: 240px; /* আরও ছোট */
+}
+
+.digital-meter-compact .meter-header {
+    padding: 12px;
+}
+
+.digital-meter-compact .meter-display {
+    padding: 12px;
+    margin: 6px;
+}
+
+.digital-meter-compact .reading-value {
+    font-size: 18px;
+}
+
+.digital-meter-compact .meter-stats {
+    grid-template-columns: 1fr;
+    gap: 8px;
+}
+
+.digital-meter-compact .meter-controls {
+    grid-template-columns: 1fr;
+    padding: 12px;
+}
+
+/* মিনিমাল ভার্সন */
+.digital-meter-minimal {
+    width: 200px; /* সবচেয়ে ছোট */
+}
+
+.digital-meter-minimal .meter-header {
+    padding: 10px;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.digital-meter-minimal .meter-title {
+    font-size: 12px;
+}
+
+.digital-meter-minimal .meter-display {
+    padding: 10px;
+    margin: 5px;
+}
+
+.digital-meter-minimal .current-reading {
+    padding: 8px;
+    margin-bottom: 10px;
+}
+
+.digital-meter-minimal .reading-value {
+    font-size: 16px;
+}
+
+.digital-meter-minimal .meter-stats {
+    grid-template-columns: 1fr;
+    gap: 6px;
+}
+
+.digital-meter-minimal .stat-item {
+    padding: 8px;
+}
+
+.digital-meter-minimal .meter-controls {
+    padding: 10px;
+    grid-template-columns: 1fr;
+}
+
+.digital-meter-minimal .meter-btn {
+    padding: 8px 10px;
+    font-size: 10px;
+}
+
+/* ডিজিটাল মিটার স্টাইল - ফিক্সড পজিশন */
+.digital-meter-container {
+    position: fixed;
+    top: 150px; /* হেডার থেকে নিচে */
+    right: 20px;
+    width: 260px;
+    z-index: 100;
+    animation: slideInRight 0.5s ease-out;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.digital-meter {
+    background: linear-gradient(135deg, #1a1a1a, #2d3436);
+    color: white;
+    border-radius: 12px;
+    padding: 0;
+    box-shadow: 
+        0 4px 15px rgba(0,0,0,0.3),
+        0 0 0 1px #444,
+        inset 0 1px 0 rgba(255,255,255,0.1);
+    border: 1px solid #555;
+    overflow: hidden;
+    font-family: 'Courier New', monospace;
+    backdrop-filter: blur(10px);
+}
+
+.meter-header {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    padding: 12px 15px;
+    text-align: center;
+    border-bottom: 1px solid #444;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.meter-icon {
+    font-size: 16px;
+    background: rgba(255,255,255,0.2);
+    padding: 5px;
+    border-radius: 6px;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.meter-title {
+    font-size: 13px;
+    font-weight: bold;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+.meter-display {
+    padding: 12px;
+    background: #000;
+    margin: 8px;
+    border-radius: 8px;
+    border: 1px solid #333;
+    box-shadow: 
+        inset 0 0 10px rgba(0,255,0,0.1),
+        0 0 5px rgba(0,255,0,0.1);
+}
+
+.current-reading {
+    text-align: center;
+    margin-bottom: 12px;
+    padding: 10px;
+    background: #001a00;
+    border-radius: 6px;
+    border: 1px solid #00cc00;
+    box-shadow: 0 0 8px rgba(0,255,0,0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+.current-reading::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(0,255,0,0.1), transparent);
+    animation: shine 3s infinite;
+}
+
+@keyframes shine {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+.reading-value {
+    font-size: 18px;
+    font-weight: bold;
+    color: #00ff00;
+    text-shadow: 0 0 8px #00ff00;
+    letter-spacing: 1px;
+    font-family: 'Orbitron', 'Courier New', monospace;
+    position: relative;
+}
+
+.reading-unit {
+    font-size: 11px;
+    color: #7f8c8d;
+    margin-left: 5px;
+}
+
+.meter-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.stat-item {
+    background: #1a1a1a;
+    padding: 8px;
+    border-radius: 5px;
+    text-align: center;
+    border: 1px solid #333;
+    transition: all 0.3s ease;
+}
+
+.stat-item:hover {
+    border-color: #3498db;
+    transform: translateY(-1px);
+}
+
+.stat-label {
+    display: block;
+    font-size: 9px;
+    color: #95a5a6;
+    margin-bottom: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stat-value {
+    display: block;
+    font-size: 11px;
+    font-weight: bold;
+    color: #3498db;
+}
+
+.meter-controls {
+    padding: 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    background: #1a1a1a;
+    border-top: 1px solid #333;
+}
+
+.meter-btn {
+    padding: 8px 10px;
+    border: none;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+}
+
+.meter-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(52, 152, 219, 0.4);
+}
+
+.meter-btn.outline {
+    background: transparent;
+    border: 1px solid #555;
+    color: #bdc3c7;
+}
+
+.meter-btn.outline:hover {
+    background: rgba(52, 152, 219, 0.1);
+    border-color: #3498db;
+    color: #3498db;
+}
+
+.btn-icon {
+    font-size: 11px;
+}
+
+/* হোভার ইফেক্ট */
+.digital-meter:hover {
+    box-shadow: 
+        0 6px 20px rgba(0,0,0,0.4),
+        0 0 0 1px #666;
+}
+
+/* রেস্পন্সিভ ডিজাইন */
+@media (max-width: 1200px) {
+    .digital-meter-container {
+        position: relative;
+        top: auto;
+        right: auto;
+        width: 100%;
+        max-width: 300px;
+        margin: 20px auto;
+        float: right;
+    }
+}
+
+@media (max-width: 768px) {
+    .digital-meter-container {
+        position: relative;
+        float: none;
+        margin: 20px auto;
+    }
+    
+    .container {
+        position: relative;
+    }
+}
+
+/* স্ক্রল করার সময় মিটার হাইড/শো */
+.digital-meter-container.scroll-hide {
+    opacity: 0.7;
+    transform: translateX(20px);
+    transition: all 0.3s ease;
+}
+
+.digital-meter-container.scroll-hide:hover {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.danger-btn {
+    background: linear-gradient(135deg, #e74c3c, #c0392b) !important;
+    transition: all 0.3s ease;
+}
+
+.danger-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
+}
+
+.meter-btn.danger {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+}
+
+.meter-btn.danger:hover {
+    background: linear-gradient(135deg, #c0392b, #a93226);
+    box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
+}
+
+.stat-label {
+    display: block;
+    font-size: 12px;
+    opacity: 0.9;
+    margin-bottom: 5px;
+}
+
+.stat-value {
+    display: block;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+/* Header with Stats Styles - FIXED */
+.header-with-stats {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 40px;
+    margin-bottom: 30px;
+    padding: 25px;
+    background: linear-gradient(135deg, #2c3e50, #34495e);
+    border-radius: 15px;
+    color: white;
+}
+
+.header-with-stats h1 {
+    font-size: 2em;
+    margin: 0;
+    font-weight: bold;
+}
+
+.header-stats {
+    display: flex;
+    gap: 20px;
+}
+
+.stat-badge {
+    background: rgba(255,255,255,0.1);
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    min-width: 200px;
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
+.stat-label {
+    display: block;
+    font-size: 14px;
+    margin-bottom: 8px;
+    color: #ecf0f1;
+    font-weight: bold; /* Bold করা */
+}
+
+.stat-value {
+    display: block;
+    font-size: 24px;
+    font-weight: bold;
+    color: #f39c12;
+}
+
+/* Ensure h1 doesn't push stats away */
+.header-with-stats h1 {
+    flex-shrink: 1;
+    min-width: 200px;
+    white-space: nowrap;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .header-with-stats {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .header-stats {
+        justify-content: flex-start;
+        width: 100%;
+    }
+    
+    .stat-badge {
+        min-width: 140px;
+        padding: 12px 20px;
+    }
+}
+
+@media (max-width: 480px) {
+    .header-stats {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .stat-badge {
+        width: 100%;
+        min-width: auto;
+    }
+}
+
+/* ===== ANIMATIONS ===== */
+
+/* 1. Page Load Animation */
+.container {
+    animation: fadeInUp 0.8s ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 2. Header Stats Animation */
+.header-with-stats {
+    animation: slideInDown 0.7s ease-out;
+}
+
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 3. Stat Cards Animation */
+.stat-badge {
+    transition: all 0.4s ease;
+    animation: slideIn 0.6s ease-out 0.3s both;
+}
+
+.stat-badge:hover {
+    transform: scale(1.05) rotate(1deg);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-30px) scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+}
+
+/* 4. Button Animations */
+.meter-btn, .primary-btn, .action-btn {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.meter-btn:hover, .primary-btn:hover, .action-btn:hover {
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+}
+
+.meter-btn:active, .primary-btn:active, .action-btn:active {
+    transform: translateY(0) scale(0.98);
+}
+
+/* Ripple Effect */
+.meter-btn::after, .primary-btn::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.meter-btn:hover::after, .primary-btn:hover::after {
+    width: 300px;
+    height: 300px;
+}
+
+/* 5. Input Focus Animation */
+input, select, textarea {
+    transition: all 0.3s ease;
+}
+
+input:focus, select:focus, textarea:focus {
+    transform: scale(1.02);
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.3);
+    border-color: #3498db;
+}
+
+/* 6. Tab Switching Animation */
+.tab-content {
+    animation: fadeIn 0.4s ease;
+}
+
+@keyframes fadeIn {
+    from { 
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to { 
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 7. Progress Bar Animation */
+.progress-fill {
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
+}
+
+/* 8. Notification Animation */
+.toast {
+    animation: slideInRight 0.5s ease, fadeOut 0.5s ease 4.5s forwards;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeOut {
+    to {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+}
+
+/* 9. Table Row Animation */
+.transaction-item {
+    animation: slideInLeft 0.5s ease;
+    transition: all 0.3s ease;
+}
+
+.transaction-item:hover {
+    transform: translateX(5px);
+    background: #f8f9fa !important;
+}
+
+@keyframes slideInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* 10. Loading Animation */
+.loading-spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* 11. Success Animation */
+.success-check {
+    animation: bounceIn 0.6s ease;
+}
+
+@keyframes bounceIn {
+    0% { transform: scale(0); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
+/* 12. Page Transition */
+.tab-button.active {
+    position: relative;
+}
+
+.tab-button.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: #3498db;
+    animation: expandWidth 0.3s ease;
+}
+
+@keyframes expandWidth {
+    from { width: 0; }
+    to { width: 100%; }
+}
+
+/* Mobile First Design */
+@media (max-width: 768px) {
+    .container {
+        padding: 15px;
+        margin: 10px;
+    }
+    
+    .header-with-stats {
+        flex-direction: column;
+        gap: 15px;
+        padding: 20px 15px;
+    }
+    
+    .header-stats {
+        flex-direction: column;
+        width: 100%;
+        gap: 10px;
+    }
+    
+    .stat-badge {
+        width: 100%;
+        min-width: auto;
+    }
+    
+    /* Touch-friendly buttons */
+    .meter-btn, .tab-button {
+        min-height: 44px;
+        min-width: 44px;
+    }
+    
+    /* Better touch targets */
+    input, select {
+        min-height: 44px;
+        font-size: 16px; /* Prevents zoom on iOS */
+    }
+}
+
+/* PWA Specific Styles */
+@media (display-mode: standalone) {
+    body {
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+}
+
+/* Edit Transaction Styles */
+.edit-transaction-form {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 4px solid #3498db;
+    margin-top: 10px;
+}
+
+.edit-transaction-form .input-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+.edit-transaction-form input {
+    flex: 1;
+    min-width: 120px;
+    padding: 8px;
+    border: 2px solid #ddd;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+.edit-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.transaction-item.editing {
+    background: #fff8e1;
+    border-left-color: #ffc107;
+}
+
+.edit-btn {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 12px;
+    margin-left: 8px;
+    transition: all 0.3s ease;
+}
+
+.edit-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 3px 8px rgba(52, 152, 219, 0.3);
+}
+
+/* ইউজার ডিসপ্লে স্টাইল */
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    
+    padding: 8px 16px;
+    border-radius: 25px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+}
+
+.user-info:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.user-avatar {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, #e74c3c, #e67e22);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.user-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.user-name {
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.user-username {
+    font-size: 11px;
+    opacity: 0.8;
+}
+
+.logout-btn {
+    background: rgba(231, 76, 60, 0.8);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 15px;
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 0.3s ease;
+    margin-left: 10px;
+}
+
+.logout-btn:hover {
+    background: rgba(231, 76, 60, 1);
+    transform: translateY(-1px);
+}
+
+.user-panel {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    background: white;
+    padding: 12px 20px;
+    border-radius: 12px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+    border-left: 4px solid #3498db;
+}
+
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    background: #3498db;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 16px;
+    box-shadow: 0 2px 5px rgba(52, 152, 219, 0.3);
+}
+
+.user-info {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.user-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: #2c3e50;
+}
+
+.user-role {
+    font-size: 11px;
+    color: #7f8c8d;
+}
+
+.logout-btn {
+    background: #e74c3c;
+    border: none;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(231, 76, 60, 0.3);
+}
+
+.logout-btn:hover {
+    background: #c0392b;
+    box-shadow: 0 4px 8px rgba(231, 76, 60, 0.4);
+    transform: translateY(-1px);
+}
+
+/* এডভান্সড রিপোর্ট স্টাইলস */
+.advanced-reports-container {
+    max-width: 100%;
+}
+
+.report-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.report-option {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    border-left: 4px solid #3498db;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.report-option:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+}
+
+.option-icon {
+    font-size: 24px;
+    margin-bottom: 10px;
+}
+
+.option-title {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.option-desc {
+    font-size: 12px;
+    color: #666;
+}
+
+/* মোবাইল রেস্পন্সিভ */
+@media (max-width: 768px) {
+    .report-options {
+        grid-template-columns: 1fr;
+    }
+    
+    .container {
+        padding: 10px;
+    }
+    
+    .input-group {
+        flex-direction: column;
+    }
+}
+
+/* ক্লাউড ব্যাকআপ স্টাইলস */
+.cloud-backup-manager {
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.backup-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8f9fa;
+    padding: 15px;
+    margin: 10px 0;
+    border-radius: 8px;
+    border-left: 4px solid #27ae60;
+}
+
+.backup-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.backup-now-btn {
+    background: #27ae60;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+/* ড্যাশবোর্ড কার্ড রেস্পন্সিভ */
+.dashboard-cards {
+    margin: 20px 0;
+}
+
+@media (max-width: 768px) {
+    .dashboard-cards {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .dashboard-cards {
+        grid-template-columns: 1fr !important;
+    }
+}

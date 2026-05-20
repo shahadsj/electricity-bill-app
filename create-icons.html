@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create PWA Icons</title>
+</head>
+<body>
+    <h2>PWA Icons Generator</h2>
+    <div id="sizes">
+        <button onclick="createIcon(72)">72x72</button>
+        <button onclick="createIcon(96)">96x96</button>
+        <button onclick="createIcon(128)">128x128</button>
+        <button onclick="createIcon(144)">144x144</button>
+        <button onclick="createIcon(152)">152x152</button>
+        <button onclick="createIcon(192)">192x192</button>
+        <button onclick="createIcon(384)">384x384</button>
+        <button onclick="createIcon(512)">512x512</button>
+    </div>
+    <canvas id="iconCanvas" style="border: 1px solid #ccc; margin: 10px;"></canvas>
+    
+    <script>
+        function createIcon(size) {
+            const canvas = document.getElementById('iconCanvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            // Background gradient
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#3498db');
+            gradient.addColorStop(1, '#2980b9');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+            
+            // Lightning icon
+            ctx.fillStyle = 'white';
+            const fontSize = size * 0.4;
+            ctx.font = `bold ${fontSize}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('⚡', size/2, size/2);
+            
+            // Download
+            const link = document.createElement('a');
+            link.download = `icon-${size}x${size}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+            
+            console.log(`Created icon-${size}x${size}.png`);
+        }
+        
+        // Auto-create all icons
+        setTimeout(() => {
+            const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+            sizes.forEach((size, index) => {
+                setTimeout(() => createIcon(size), index * 500);
+            });
+        }, 1000);
+    </script>
+</body>
+</html>

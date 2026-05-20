@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create Screenshot</title>
+</head>
+<body>
+    <h3>Creating desktop screenshot...</h3>
+    <canvas id="canvas" width="720" height="1280"></canvas>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Background
+        const gradient = ctx.createLinearGradient(0, 0, 720, 1280);
+        gradient.addColorStop(0, '#2c3e50');
+        gradient.addColorStop(1, '#3498db');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 720, 1280);
+        
+        // App content simulation
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.fillRect(100, 100, 1080, 400);
+        
+        // Title
+        ctx.fillStyle = '#2c3e50';
+        ctx.font = 'bold 48px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('বিদ্যুৎ বিল ক্যালকুলেটর', 640, 180);
+        
+        // App features
+        ctx.font = '24px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText('✓ বিল ক্যালকুলেশন', 150, 250);
+        ctx.fillText('✓ মাসিক রিপোর্ট', 150, 300);
+        ctx.fillText('✓ ব্যবহার বিশ্লেষণ', 150, 350);
+        ctx.fillText('✓ অফলাইন কাজ করে', 150, 400);
+        
+        // Download
+        const link = document.createElement('a');
+        link.download = 'desktop-screenshot.png';
+        link.href = canvas.toDataURL('image/png');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        alert('desktop-screenshot.png downloaded! Save it in screenshots/ folder.');
+    </script>
+</body>
+</html>
