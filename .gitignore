@@ -1,0 +1,7 @@
+# .gitignore ফাইল তৈরি করুন
+node_modules/
+.DS_Store
+*.log
+.env
+backup_files/
+temp/
