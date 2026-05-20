@@ -3669,3 +3669,30 @@ input:focus, select:focus, textarea:focus {
         font-size: 12px;
     }
 }
+
+/* Sync animations */
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.sync-auto-notification {
+    animation: slideInRight 0.5s ease;
+}
+
+/* Sync button highlight */
+.auto-sync-btn {
+    background: linear-gradient(135deg, #667eea, #764ba2) !important;
+    color: white !important;
+}
+
+.auto-sync-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
