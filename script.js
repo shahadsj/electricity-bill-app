@@ -1,163 +1,3 @@
-// ==================== FIREBASE AUTO SYNC SYSTEM ====================
-
-let firebaseSyncEnabled = true;
-let firebaseUserId = null;
-let isFirebaseSyncing = false;
-
-// ইউজার আইডি সেট করুন
-function setFirebaseUser(userId) {
-    firebaseUserId = `user_${userId}`;
-    console.log('✅ Firebase user set:', firebaseUserId);
-    
-    // রিয়েল-টাইম লিসেনার সেটআপ
-    setupFirebaseListener();
-    
-    // প্রথমবার ডেটা লোড
-    setTimeout(() => loadFromFirebase(), 1000);
-}
-
-// Firebase এ ডেটা সেভ করুন
-async function saveToFirebase() {
-    if (!firebaseUserId || isFirebaseSyncing) return;
-    
-    isFirebaseSyncing = true;
-    
-    try {
-        const dataToSave = {
-            transactions: transactions || [],
-            monthlyRecharges: monthlyRecharges || [],
-            currentBalance: currentBalance || 0,
-            totalRecharge: totalRecharge || 0,
-            totalExpended: totalExpended || 0,
-            lastUpdated: firebase.database.ServerValue.TIMESTAMP
-        };
-        
-        const userRef = database.ref(`users/${firebaseUserId}/data`);
-        await userRef.set(dataToSave);
-        
-        console.log('✅ Saved to Firebase');
-        return true;
-    } catch (error) {
-        console.error('Firebase save error:', error);
-        return false;
-    } finally {
-        isFirebaseSyncing = false;
-    }
-}
-
-// Firebase থেকে ডেটা লোড করুন
-async function loadFromFirebase() {
-    if (!firebaseUserId) return null;
-    
-    try {
-        const userRef = database.ref(`users/${firebaseUserId}/data`);
-        const snapshot = await userRef.once('value');
-        const data = snapshot.val();
-        
-        if (data && data.transactions) {
-            console.log('📥 Loading from Firebase:', data.transactions.length, 'transactions');
-            
-            // ডেটা আপডেট করুন
-            transactions = data.transactions || [];
-            monthlyRecharges = data.monthlyRecharges || [];
-            currentBalance = data.currentBalance || 0;
-            totalRecharge = data.totalRecharge || 0;
-            totalExpended = data.totalExpended || 0;
-            
-            // লোকাল স্টোরেজ আপডেট
-            saveAllData();
-            
-            // UI আপডেট
-            refreshAllUIAfterSync();
-            
-            showSyncNotification(`✅ ${data.transactions.length}টি ট্রানজেকশন লোড হয়েছে`);
-            return data;
-        }
-        return null;
-    } catch (error) {
-        console.error('Firebase load error:', error);
-        return null;
-    }
-}
-
-// রিয়েল-টাইম লিসেনার (অটো আপডেট)
-function setupFirebaseListener() {
-    if (!firebaseUserId) return;
-    
-    const userRef = database.ref(`users/${firebaseUserId}/data`);
-    userRef.on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (data && !isFirebaseSyncing) {
-            console.log('🔄 Real-time update from Firebase!');
-            
-            // লোকাল ডেটা আপডেট
-            const oldCount = transactions?.length || 0;
-            transactions = data.transactions || [];
-            monthlyRecharges = data.monthlyRecharges || [];
-            currentBalance = data.currentBalance || 0;
-            totalRecharge = data.totalRecharge || 0;
-            totalExpended = data.totalExpended || 0;
-            
-            if (oldCount !== transactions.length) {
-                console.log(`📊 Transactions: ${oldCount} → ${transactions.length}`);
-                saveAllData();
-                refreshAllUIAfterSync();
-                showSyncNotification(`🔄 ${transactions.length - oldCount}টি নতুন ট্রানজেকশন এসেছে!`, 'info');
-            }
-        }
-    });
-}
-
-// ডেটা পরিবর্তন হলে অটো সেভ
-function autoSyncToFirebase() {
-    if (firebaseUserId && !isFirebaseSyncing) {
-        saveToFirebase();
-    }
-}
-
-// সব UI রিফ্রেশ
-function refreshAllUIAfterSync() {
-    if (typeof updateBalanceDisplay === 'function') updateBalanceDisplay();
-    if (typeof loadTransactionReport === 'function') loadTransactionReport();
-    if (typeof updateMeterDisplay === 'function') updateMeterDisplay();
-    if (typeof updateUnitDisplay === 'function') updateUnitDisplay();
-    if (typeof updateTariffDisplay === 'function') updateTariffDisplay();
-    
-    console.log('🔄 UI refreshed after sync');
-}
-
-// সিঙ্ক নোটিফিকেশন
-function showSyncNotification(message, type = 'success') {
-    const notif = document.createElement('div');
-    notif.style.cssText = `
-        position: fixed;
-        bottom: 20px;
-        left: 20px;
-        background: ${type === 'success' ? '#27ae60' : '#3498db'};
-        color: white;
-        padding: 10px 20px;
-        border-radius: 8px;
-        z-index: 10000;
-        animation: slideInLeft 0.5s ease;
-        font-size: 14px;
-    `;
-    notif.innerHTML = `🔥 ${message}`;
-    document.body.appendChild(notif);
-    
-    setTimeout(() => {
-        notif.style.opacity = '0';
-        setTimeout(() => notif.remove(), 500);
-    }, 3000);
-}
-
-// ম্যানুয়াল ফোর্স সিঙ্ক
-async function forceFirebaseSync() {
-    showNotification('🔄 ফোর্স সিঙ্ক শুরু...', 'info');
-    await saveToFirebase();
-    await loadFromFirebase();
-    showNotification('✅ ফোর্স সিঙ্ক সম্পন্ন!', 'success');
-}
-
 // ==================== লগইন ফাংশন আপডেট ====================
 // লগইন成功后 Firebase সেটআপ
 const originalShowMainApp = showMainApp;
@@ -328,7 +168,7 @@ function verifyPassword(user, password) {
     return user.password === hashPassword(password);
 }
 
-// লগিন হ্যান্ডলার - FIXED VERSION
+// লগিন হ্যান্ডলার - FIXED VERSION (with Admin ID fixed)
 function handleLogin(event) {
     event.preventDefault();
     
@@ -341,7 +181,7 @@ function handleLogin(event) {
     }
     
     // ইউজার খুঁজুন
-    const user = users.find(u => u.username === username && u.isActive);
+    let user = users.find(u => u.username === username && u.isActive);
     
     if (!user) {
         showNotification('❌ ইউজারনেম ভুল', 'error');
@@ -353,6 +193,20 @@ function handleLogin(event) {
         showNotification('❌ পাসওয়ার্ড ভুল', 'error');
         return;
     }
+    
+    // ========== ADMIN ID FIX - সব জায়গায় একই ID থাকবে ==========
+    const ADMIN_FIXED_ID = 1779295853532; // Firefox এর admin ID
+    
+    if (user.username === 'admin') {
+        // পুরানো ইউজার Array তে ID আপডেট করুন
+        const adminIndex = users.findIndex(u => u.username === 'admin');
+        if (adminIndex !== -1) {
+            users[adminIndex].id = ADMIN_FIXED_ID;
+            user = users[adminIndex];
+        }
+        console.log('✅ Admin ID fixed to:', ADMIN_FIXED_ID);
+    }
+    // ========== END ADMIN ID FIX ==========
     
     // লগিন সফল
     currentUser = {
@@ -369,8 +223,13 @@ function handleLogin(event) {
     // কারেন্ট ইউজার সেভ
     localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(currentUser));
     
+    // Firebase এ ইউজার আইডি সেট করুন (Auto Sync এর জন্য)
+    if (typeof setFirebaseUser === 'function') {
+        setFirebaseUser(currentUser.id);
+    }
+    
     showMainApp();
-	updateUserDisplay();
+    updateUserDisplay();
     showNotification(`✅ স্বাগতম ${user.fullName}!`, 'success');
 }
 
