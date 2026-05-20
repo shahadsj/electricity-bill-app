@@ -18,14 +18,40 @@
     <!-- ===== END PWA META TAGS ===== -->
     
     <link rel="stylesheet" href="style.css">
+    
     <!-- Chart.js for Analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
     <!-- JSZip for backup downloads -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-	
-	<!-- Firebase SDK -->
-	<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-	<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    
+    <!-- ===== FIREBASE SDK ===== -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    
+    <!-- ===== FIREBASE CONFIGURATION ===== -->
+    <script>
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBOQPeLUDcGe-64za2MTw3eHbCXT1KTEvI",
+            authDomain: "electricity-bill-app-636e8.firebaseapp.com",
+            databaseURL: "https://electricity-bill-app-636e8-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "electricity-bill-app-636e8",
+            storageBucket: "electricity-bill-app-636e8.firebasestorage.app",
+            messagingSenderId: "975938216195",
+            appId: "1:975938216195:web:7a1815cc80bc53072b8936"
+        };
+        
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        
+        // Global access for other scripts
+        window.database = database;
+        
+        console.log('🔥 Firebase Connected Successfully!');
+        console.log('Database URL:', firebaseConfig.databaseURL);
+    </script>
 </head>
 <body>
     <!-- লগিন মডাল -->
