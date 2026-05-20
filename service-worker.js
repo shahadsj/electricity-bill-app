@@ -1,169 +1,131 @@
-// service-worker.js - IMPROVED VERSION
-const CACHE_NAME = 'electricity-bill-v3.0';
-const urlsToCache = [
-  '/',
-  '/index.html',
-  '/style.css', 
-  '/script.js',
-  '/manifest.json',
-  '/service-worker.js'
-];
+// ==================== PWA অটো আপডেট চেকার ====================
 
-// External resources (optional caching)
-const externalResources = [
-  'https://cdn.jsdelivr.net/npm/chart.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
-];
-
-// Install event
-self.addEventListener('install', event => {
-  console.log('⚡ Service Worker installing...');
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('📦 Cache opened, adding resources...');
-        // Cache essential files first
-        return cache.addAll(urlsToCache);
-      })
-      .then(() => {
-        console.log('✅ All resources cached successfully');
-        return self.skipWaiting(); // Immediate activation
-      })
-      .catch(error => {
-        console.error('❌ Cache installation failed:', error);
-      })
-  );
-});
-
-// Activate event - Clean up old caches
-self.addEventListener('activate', event => {
-  console.log('🔄 Service Worker activating...');
-  event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('🗑️ Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
+function setupPWAUpdateChecker() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.ready.then(registration => {
+      // প্রতি 30 মিনিট পর পর চেক করুন
+      setInterval(() => {
+        registration.update();
+        console.log('🔍 Checking for PWA updates...');
+      }, 30 * 60 * 1000); // 30 minutes
+      
+      // নতুন SW ইনস্টল হলে নোটিফিকেশন দেখান
+      registration.addEventListener('updatefound', () => {
+        const newWorker = registration.installing;
+        console.log('🆕 New Service Worker found!');
+        
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            console.log('✨ Update available!');
+            showPWAUpdateNotification();
           }
-        })
-      );
-    }).then(() => {
-      console.log('✅ Service Worker activated');
-      return self.clients.claim(); // Take control immediately
-    })
-  );
-});
-
-// Fetch event - Cache First with Network Fallback (Better for PWA)
-self.addEventListener('fetch', event => {
-  // Skip non-GET requests and chrome-extension requests
-  if (event.request.method !== 'GET' || event.request.url.startsWith('chrome-extension://')) {
-    return;
-  }
-
-  event.respondWith(
-    caches.match(event.request)
-      .then(cachedResponse => {
-        // Return cached version if available
-        if (cachedResponse) {
-          console.log('📂 Serving from cache:', event.request.url);
-          return cachedResponse;
-        }
-
-        // Otherwise fetch from network
-        console.log('🌐 Fetching from network:', event.request.url);
-        return fetch(event.request)
-          .then(networkResponse => {
-            // Check if valid response
-            if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-              return networkResponse;
-            }
-
-            // Clone the response and cache it
-            const responseToCache = networkResponse.clone();
-            caches.open(CACHE_NAME)
-              .then(cache => {
-                cache.put(event.request, responseToCache);
-                console.log('💾 Cached new resource:', event.request.url);
-              });
-
-            return networkResponse;
-          })
-          .catch(error => {
-            console.log('❌ Network failed, serving fallback:', error);
-            
-            // If it's an HTML request, serve the main page
-            if (event.request.headers.get('accept').includes('text/html')) {
-              return caches.match('/index.html');
-            }
-            
-            // For other requests, you can return a custom offline page
-            return new Response('🔌 You are offline. Please check your internet connection.', {
-              status: 408,
-              headers: { 'Content-Type': 'text/plain' }
-            });
-          });
-      })
-  );
-});
-
-// Background sync for offline data (if supported)
-self.addEventListener('sync', event => {
-  if (event.tag === 'background-sync') {
-    console.log('🔄 Background sync triggered');
-    event.waitUntil(doBackgroundSync());
-  }
-});
-
-// Periodic sync (if supported)
-self.addEventListener('periodicsync', event => {
-  if (event.tag === 'periodic-data-sync') {
-    console.log('🕒 Periodic sync triggered');
-    event.waitUntil(doPeriodicSync());
-  }
-});
-
-async function doBackgroundSync() {
-  try {
-    // Add your background sync logic here
-    console.log('🔄 Performing background sync...');
+        });
+      });
+    });
     
-    // Example: Sync offline transactions
-    const offlineData = localStorage.getItem('offline_transactions');
-    if (offlineData) {
-      console.log('📤 Syncing offline data...');
-      // Add your sync logic here
-    }
-    
-    return Promise.resolve();
-  } catch (error) {
-    console.error('❌ Background sync failed:', error);
-    return Promise.reject(error);
+    // কন্ট্রোল চেঞ্জ হলে রিলোড
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) return;
+      refreshing = true;
+      console.log('🔄 Reloading to apply update...');
+      window.location.reload();
+    });
   }
 }
 
-async function doPeriodicSync() {
-  try {
-    // Add periodic sync logic (e.g., every 24 hours)
-    console.log('🕒 Performing periodic sync...');
-    return Promise.resolve();
-  } catch (error) {
-    console.error('❌ Periodic sync failed:', error);
-    return Promise.reject(error);
-  }
-}
-
-// Handle messages from the main thread
-self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
+function showPWAUpdateNotification() {
+  // চেক করুন নোটিফিকেশন ইতিমধ্যে আছে কিনা
+  if (document.querySelector('.pwa-update-notification')) return;
   
-  if (event.data && event.data.type === 'GET_VERSION') {
-    event.ports[0].postMessage({version: '3.0'});
+  const notificationHTML = `
+    <div class="pwa-update-notification" style="
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      right: 20px;
+      max-width: 400px;
+      margin: 0 auto;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      padding: 15px 20px;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      animation: slideUp 0.5s ease;
+      cursor: pointer;
+    ">
+      <div style="font-size: 24px;">🔄</div>
+      <div style="flex: 1;">
+        <div style="font-weight: bold; margin-bottom: 3px;">নতুন আপডেট পাওয়া গেছে!</div>
+        <div style="font-size: 12px; opacity: 0.9;">নতুন ফিচার পেতে আপডেট করুন</div>
+      </div>
+      <button onclick="applyPWAUpdate()" style="
+        background: white;
+        color: #667eea;
+        border: none;
+        padding: 8px 20px;
+        border-radius: 25px;
+        cursor: pointer;
+        font-weight: bold;
+      ">
+        আপডেট
+      </button>
+    </div>
+  `;
+  
+  const notificationDiv = document.createElement('div');
+  notificationDiv.innerHTML = notificationHTML;
+  document.body.appendChild(notificationDiv);
+  
+  // 1 মিনিট পর অটো হাইড
+  setTimeout(() => {
+    if (notificationDiv && notificationDiv.parentElement) {
+      notificationDiv.style.opacity = '0';
+      setTimeout(() => notificationDiv.remove(), 500);
+    }
+  }, 60000);
+}
+
+function applyPWAUpdate() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.ready.then(registration => {
+      if (registration.waiting) {
+        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+        showNotification('✅ আপডেট করা হচ্ছে...', 'success');
+      } else {
+        window.location.reload();
+      }
+    });
   }
+}
+
+// পেজ লোড হলে সেটআপ করুন
+document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(setupPWAUpdateChecker, 3000);
 });
 
-console.log('⚡ Service Worker loaded successfully');
+// CSS অ্যানিমেশন
+if (!document.querySelector('#pwa-update-style')) {
+  const style = document.createElement('style');
+  style.id = 'pwa-update-style';
+  style.textContent = `
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(100px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+// গ্লোবাল ফাংশন
+window.applyPWAUpdate = applyPWAUpdate;

@@ -3646,3 +3646,26 @@ input:focus, select:focus, textarea:focus {
         grid-template-columns: 1fr !important;
     }
 }
+
+/* PWA Install Button Animation */
+@keyframes bounceIn {
+    0% { opacity: 0; transform: scale(0.3); }
+    50% { opacity: 1; transform: scale(1.05); }
+    70% { transform: scale(0.9); }
+    100% { transform: scale(1); }
+}
+
+.install-btn {
+    animation: bounceIn 0.6s ease;
+    font-family: inherit;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .install-btn {
+        bottom: 10px;
+        right: 10px;
+        padding: 10px 16px;
+        font-size: 12px;
+    }
+}

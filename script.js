@@ -10787,10 +10787,12 @@ console.log('✅ Multi-Browser Sync System Loaded');
 
 // ==================== END MULTI-BROWSER SYNC SYSTEM ====================
 
-// ==================== PWA INSTALLATION HANDLER ====================
+// ==================== PWA INSTALLATION HANDLER (IMPROVED) ====================
 
 let deferredPrompt;
 let installButton;
+let installPromptAttempts = 0;
+const MAX_PROMPT_ATTEMPTS = 3;
 
 // Install prompt event
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -10798,17 +10800,38 @@ window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
     
-    // Show install button after 3 seconds
-    setTimeout(showInstallButton, 3000);
+    // ইউজারকে দেখান যে অ্যাপ ইন্সটল করা যাবে
+    showInstallButton();
+    
+    // ইউজার যদি আগে ইন্সটল করে থাকে, তাহলে পরে আর দেখাবেন না
+    if (localStorage.getItem('pwa_installed') === 'true') {
+        hideInstallButton();
+    }
 });
 
-// Show custom install button
+// Show custom install button (improved)
 function showInstallButton() {
     // Remove existing button if any
     const existingBtn = document.querySelector('.install-btn');
     if (existingBtn) existingBtn.remove();
     
-    // Create install button
+    // চেক করুন অ্যাপ ইতিমধ্যে ইন্সটলড কিনা
+    if (isRunningAsPWA() || localStorage.getItem('pwa_installed') === 'true') {
+        console.log('✅ App already installed, not showing install button');
+        return;
+    }
+    
+    // চেক করুন ইউজার আগে ডিক্লাইন করেছে কিনা
+    const lastDeclineTime = localStorage.getItem('pwa_install_declined');
+    if (lastDeclineTime) {
+        const hoursSinceDecline = (Date.now() - parseInt(lastDeclineTime)) / (1000 * 60 * 60);
+        if (hoursSinceDecline < 24) {
+            console.log('⏰ User declined install in last 24 hours, not showing button');
+            return;
+        }
+    }
+    
+    // Create install button with better styling
     installButton = document.createElement('button');
     installButton.className = 'install-btn';
     installButton.innerHTML = '📱 অ্যাপ ইন্সটল করুন';
@@ -10827,59 +10850,232 @@ function showInstallButton() {
         font-weight: bold;
         box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         transition: all 0.3s ease;
+        animation: bounceIn 0.6s ease;
     `;
     
+    // Hover effects
     installButton.onmouseover = function() {
-        this.style.transform = 'translateY(-2px)';
-        this.style.boxShadow = '0 6px 20px rgba(0,0,0,0.3)';
+        this.style.transform = 'translateY(-3px) scale(1.02)';
+        this.style.boxShadow = '0 8px 25px rgba(102, 126, 234, 0.4)';
     };
     
     installButton.onmouseout = function() {
-        this.style.transform = 'translateY(0)';
+        this.style.transform = 'translateY(0) scale(1)';
         this.style.boxShadow = '0 4px 15px rgba(0,0,0,0.2)';
     };
     
-    installButton.onclick = installApp;
+    installButton.onclick = () => {
+        installApp();
+        // ক্লিক করার পর অ্যানিমেশন
+        installButton.style.transform = 'scale(0.95)';
+        setTimeout(() => {
+            if (installButton) installButton.style.transform = 'scale(1)';
+        }, 200);
+    };
+    
     document.body.appendChild(installButton);
+    
+    // 30 সেকেন্ড পর অটো হাইড (ইউজারকে বিরক্ত না করতে)
+    setTimeout(() => {
+        if (installButton && installButton.style.display !== 'none') {
+            installButton.style.opacity = '0';
+            setTimeout(() => {
+                if (installButton) installButton.style.display = 'none';
+            }, 500);
+        }
+    }, 30000);
 }
 
-// Install app function
-function installApp() {
+// Hide install button
+function hideInstallButton() {
+    if (installButton) {
+        installButton.style.opacity = '0';
+        setTimeout(() => {
+            if (installButton) installButton.remove();
+        }, 300);
+    }
+}
+
+// Install app function (improved)
+async function installApp() {
     if (!deferredPrompt) {
-        showNotification('📱 Install feature not available in this browser.', 'info');
+        // Fallback: browser's native install
+        showNotification('📱 মেনু থেকে "অ্যাপ ইন্সটল করুন" সিলেক্ট করুন', 'info');
         return;
     }
     
-    // Show install prompt
-    deferredPrompt.prompt();
-    
-    deferredPrompt.userChoice.then((choiceResult) => {
+    try {
+        // Show install prompt
+        deferredPrompt.prompt();
+        
+        const choiceResult = await deferredPrompt.userChoice;
+        
         if (choiceResult.outcome === 'accepted') {
             console.log('✅ User installed the app');
-            showNotification('🎉 অ্যাপ সফলভাবে ইন্সটল হয়েছে!', 'success');
-            if (installButton) installButton.style.display = 'none';
+            showNotification('🎉 অ্যাপ সফলভাবে ইন্সটল হয়েছে! হোম স্ক্রিনে চেক করুন।', 'success');
+            localStorage.setItem('pwa_installed', 'true');
+            if (installButton) hideInstallButton();
+            
+            // ইন্সটল成功后 ট্র্যাক করুন
+            if (typeof gtag !== 'undefined') {
+                gtag('event', 'pwa_install', { 'event_category': 'engagement' });
+            }
         } else {
             console.log('❌ User dismissed install prompt');
-            showNotification('অ্যাপ ইন্সটল বাতিল করা হয়েছে।', 'info');
+            showNotification('অ্যাপ ইন্সটল বাতিল করা হয়েছে। পরে আবার চেষ্টা করতে পারেন।', 'info');
+            
+            // ডিক্লাইন ট্র্যাক করুন
+            localStorage.setItem('pwa_install_declined', Date.now().toString());
+            installPromptAttempts++;
+            
+            // ২৪ ঘন্টা পর আবার দেখানোর জন্য
+            setTimeout(() => {
+                if (deferredPrompt && installPromptAttempts < MAX_PROMPT_ATTEMPTS) {
+                    showInstallButton();
+                }
+            }, 24 * 60 * 60 * 1000);
         }
+        
         deferredPrompt = null;
-    });
+        
+    } catch (error) {
+        console.error('Installation error:', error);
+        showNotification('❌ ইন্সটল করতে সমস্যা হয়েছে!', 'error');
+    }
 }
 
 // Detect if app is already installed
 window.addEventListener('appinstalled', (evt) => {
-    console.log('🏠 App was installed');
-    if (installButton) installButton.style.display = 'none';
+    console.log('🏠 App was installed successfully');
+    localStorage.setItem('pwa_installed', 'true');
+    if (installButton) hideInstallButton();
+    
+    // Optional: Send analytics
+    if (typeof gtag !== 'undefined') {
+        gtag('event', 'pwa_installed', { 'event_category': 'engagement' });
+    }
 });
 
-// Check if app is running in standalone mode
+// Check if app is running in standalone mode (improved)
 function isRunningAsPWA() {
-    return window.matchMedia('(display-mode: standalone)').matches || 
-           window.navigator.standalone === true;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                         window.navigator.standalone === true ||
+                         document.referrer.includes('android-app://');
+    
+    // Display mode detect via meta
+    const isPWA = document.querySelector('meta[name="apple-mobile-web-app-capable"]')?.content === 'yes';
+    
+    return isStandalone || isPWA;
+}
+
+// Show custom install guide for mobile browsers
+function showInstallGuide() {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isAndroid = /Android/.test(navigator.userAgent);
+    
+    let guideHTML = '';
+    
+    if (isIOS) {
+        guideHTML = `
+            <div style="text-align: center; padding: 20px;">
+                <div style="font-size: 48px; margin-bottom: 15px;">📱</div>
+                <h3 style="color: #2c3e50;">কিভাবে অ্যাপ ইন্সটল করবেন?</h3>
+                <ol style="text-align: left; margin-top: 20px;">
+                    <li>শেয়ার বাটনে 🖨️ ক্লিক করুন</li>
+                    <li>"হোম স্ক্রিনে যোগ করুন" সিলেক্ট করুন</li>
+                    <li>✅ "যোগ করুন" এ ক্লিক করুন</li>
+                </ol>
+                <button onclick="closeModal()" style="margin-top: 20px; padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer;">বুঝলাম</button>
+            </div>
+        `;
+    } else if (isAndroid) {
+        guideHTML = `
+            <div style="text-align: center; padding: 20px;">
+                <div style="font-size: 48px; margin-bottom: 15px;">🤖</div>
+                <h3 style="color: #2c3e50;">কিভাবে অ্যাপ ইন্সটল করবেন?</h3>
+                <ol style="text-align: left; margin-top: 20px;">
+                    <li>মেনু বাটনে ⋮ ক্লিক করুন</li>
+                    <li>"অ্যাপ ইন্সটল করুন" সিলেক্ট করুন</li>
+                    <li>✅ "ইন্সটল" এ ক্লিক করুন</li>
+                </ol>
+                <button onclick="closeModal()" style="margin-top: 20px; padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer;">বুঝলাম</button>
+            </div>
+        `;
+    }
+    
+    if (guideHTML) {
+        showCustomModal('📱 অ্যাপ ইন্সটল গাইড', guideHTML);
+    }
+}
+
+// Check for update on page load
+window.addEventListener('load', () => {
+    // চেক করুন অ্যাপ ইন্সটলড কিনা
+    if (isRunningAsPWA()) {
+        console.log('✅ Running as PWA');
+        localStorage.setItem('pwa_installed', 'true');
+        if (installButton) hideInstallButton();
+    }
+    
+    // Service Worker update check
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then(registration => {
+            registration.update();
+        });
+    }
+});
+
+// Add install guide button to header (optional)
+function addInstallGuideButton() {
+    if (!isRunningAsPWA() && !localStorage.getItem('pwa_installed')) {
+        const headerControls = document.querySelector('.header-controls');
+        if (headerControls && !document.querySelector('.install-guide-btn')) {
+            const guideBtn = document.createElement('button');
+            guideBtn.className = 'control-btn';
+            guideBtn.innerHTML = '📱 ইন্সটল গাইড';
+            guideBtn.onclick = showInstallGuide;
+            guideBtn.style.background = 'linear-gradient(135deg, #e67e22, #d35400)';
+            headerControls.appendChild(guideBtn);
+        }
+    }
 }
 
 // Show install info in console
-console.log('PWA Status:', isRunningAsPWA() ? 'Installed' : 'Not Installed');
+console.log('📱 PWA Status:', isRunningAsPWA() ? '✅ Installed' : '❌ Not Installed');
+
+// Animation CSS
+if (!document.querySelector('#pwa-install-style')) {
+    const style = document.createElement('style');
+    style.id = 'pwa-install-style';
+    style.textContent = `
+        @keyframes bounceIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.3);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.05);
+            }
+            70% {
+                transform: scale(0.9);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+        
+        .install-btn {
+            animation: bounceIn 0.6s ease;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// Initialize guide button on DOM ready
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(addInstallGuideButton, 2000);
+});
 
 // ==================== END PWA INSTALLATION HANDLER ====================
 
