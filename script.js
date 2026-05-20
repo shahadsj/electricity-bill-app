@@ -189,7 +189,7 @@ function handleLogin(event) {
     showNotification(`✅ স্বাগতম ${user.fullName}!`, 'success');
 }
 
-// রেজিস্টার হ্যান্ডলার
+// রেজিস্টার হ্যান্ডলার - আপডেটেড ভার্সন
 function handleRegister(event) {
     event.preventDefault();
     
@@ -205,6 +205,12 @@ function handleRegister(event) {
         return;
     }
     
+    // ❌ কেউ 'admin' ইউজারনাম দিয়ে রেজিস্টার করতে পারবে না
+    if (username.toLowerCase() === 'admin') {
+        showNotification('❌ "admin" ইউজারনাম ব্যবহার করা যাবে না!', 'error');
+        return;
+    }
+    
     if (password.length < 6) {
         showNotification('❌ পাসওয়ার্ড অন্তত ৬ ক্যারেক্টার হতে হবে', 'error');
         return;
@@ -215,9 +221,9 @@ function handleRegister(event) {
         return;
     }
     
-    // ইউজারনেম চেক
+    // ইউজারনাম চেক
     if (users.find(u => u.username === username)) {
-        showNotification('❌ এই ইউজারনেম ইতিমধ্যে exists', 'error');
+        showNotification('❌ এই ইউজারনাম ইতিমধ্যে exists', 'error');
         return;
     }
     
@@ -232,9 +238,190 @@ function handleRegister(event) {
     users.push(newUser);
     saveUsers();
     
+    // ✅ শুধুমাত্র অ্যাডমিন নোটিফিকেশন পাবে
+    sendAdminNotification(newUser);
+    
     showNotification('✅ অ্যাকাউন্ট তৈরি সফল! এখন লগিন করুন', 'success');
     showLoginForm();
 }
+
+// ✅ নতুন ফাংশন: অ্যাডমিনকে নোটিফিকেশন পাঠান
+function sendAdminNotification(newUser) {
+    // চেক করুন বর্তমান লগিন করা ইউজার অ্যাডমিন কিনা
+    if (currentUser && currentUser.username === 'admin') {
+        // অ্যাপের ভিতরে নোটিফিকেশন দেখান (শুধু অ্যাডমিনের জন্য)
+        const notificationHTML = `
+            <div style="
+                position: fixed;
+                top: 80px;
+                right: 20px;
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                color: white;
+                padding: 15px 20px;
+                border-radius: 12px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+                z-index: 10000;
+                animation: slideInRight 0.5s ease;
+                max-width: 350px;
+                border-left: 4px solid #f1c40f;
+            ">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="font-size: 24px;">👤</div>
+                    <div style="flex: 1;">
+                        <div style="font-weight: bold; margin-bottom: 5px;">নতুন ইউজার রেজিস্টার করেছেন!</div>
+                        <div style="font-size: 12px; opacity: 0.9;">
+                            <div>👤 নাম: ${newUser.fullName}</div>
+                            <div>🔑 ইউজারনেম: ${newUser.username}</div>
+                            <div>📧 ইমেইল: ${newUser.email}</div>
+                            <div>📅 সময়: ${new Date().toLocaleString('bn-BD')}</div>
+                        </div>
+                    </div>
+                    <button onclick="this.parentElement.parentElement.remove()" style="
+                        background: rgba(255,255,255,0.2);
+                        border: none;
+                        color: white;
+                        cursor: pointer;
+                        padding: 5px 10px;
+                        border-radius: 5px;
+                    ">✕</button>
+                </div>
+            </div>
+        `;
+        
+        // নোটিফিকেশন এলিমেন্ট যোগ করুন
+        const notificationDiv = document.createElement('div');
+        notificationDiv.innerHTML = notificationHTML;
+        document.body.appendChild(notificationDiv);
+        
+        // ৮ সেকেন্ড পর অটো রিমুভ
+        setTimeout(() => {
+            if (notificationDiv && notificationDiv.parentElement) {
+                notificationDiv.remove();
+            }
+        }, 8000);
+        
+        // কনসোলেও লগ রাখুন
+        console.log('📢 নতুন ইউজার রেজিস্টার:', {
+            name: newUser.fullName,
+            username: newUser.username,
+            email: newUser.email,
+            time: new Date().toISOString()
+        });
+        
+        // সাউন্ড প্লে করুন (অপশনাল)
+        try {
+            const audio = new Audio('data:audio/wav;base64,U3RlYWx0aCBzb3VuZA==');
+            audio.play().catch(e => console.log('Sound play failed:', e));
+        } catch(e) {}
+    }
+    
+    // লোকাল স্টোরেজেও সেভ করুন (নতুন রেজিস্ট্রেশনের লগ)
+    const registrationLog = JSON.parse(localStorage.getItem('registration_log') || '[]');
+    registrationLog.push({
+        user: newUser,
+        timestamp: new Date().toISOString(),
+        adminNotified: currentUser && currentUser.username === 'admin'
+    });
+    localStorage.setItem('registration_log', JSON.stringify(registrationLog.slice(-50))); // সর্বশেষ 50টি রাখুন
+}
+
+// ✅ রেজিস্ট্রেশন লগ দেখান (শুধু অ্যাডমিনের জন্য)
+function showRegistrationLog() {
+    if (!currentUser || currentUser.username !== 'admin') {
+        showNotification('❌ শুধুমাত্র অ্যাডমিন এই ফিচার ব্যবহার করতে পারেন!', 'error');
+        return;
+    }
+    
+    const registrationLog = JSON.parse(localStorage.getItem('registration_log') || '[]');
+    
+    if (registrationLog.length === 0) {
+        showCustomModal('📋 রেজিস্ট্রেশন লগ', '<div style="text-align:center; padding:40px;">কোন রেজিস্ট্রেশন লগ নেই</div>');
+        return;
+    }
+    
+    let logHTML = `
+        <div style="max-height: 500px; overflow-y: auto;">
+            <h3 style="text-align:center; color:#2c3e50;">📋 রেজিস্ট্রেশন লগ</h3>
+            <p style="text-align:center; color:#7f8c8d;">মোট: ${registrationLog.length}টি রেজিস্ট্রেশন</p>
+    `;
+    
+    registrationLog.reverse().forEach(log => {
+        const date = new Date(log.timestamp).toLocaleString('bn-BD');
+        logHTML += `
+            <div style="background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #27ae60;">
+                <div><strong>👤 নাম:</strong> ${log.user.fullName}</div>
+                <div><strong>🔑 ইউজারনেম:</strong> ${log.user.username}</div>
+                <div><strong>📧 ইমেইল:</strong> ${log.user.email}</div>
+                <div><strong>📅 সময়:</strong> ${date}</div>
+                <div><strong>📢 নোটিফিকেশন:</strong> ${log.adminNotified ? '✅ পাঠানো হয়েছে' : '❌ পাঠানো হয়নি'}</div>
+            </div>
+        `;
+    });
+    
+    logHTML += `</div>`;
+    showCustomModal('📋 রেজিস্ট্রেশন লগ', logHTML);
+}
+
+// ✅ অ্যাডমিন প্যানেলে বাটন যোগ করুন (শুধু অ্যাডমিন লগিন করলে)
+function addAdminPanelButton() {
+    if (currentUser && currentUser.username === 'admin') {
+        const headerControls = document.querySelector('.header-controls');
+        if (headerControls && !document.getElementById('adminRegLogBtn')) {
+            const adminBtn = document.createElement('button');
+            adminBtn.id = 'adminRegLogBtn';
+            adminBtn.innerHTML = '📋 রেজিস্ট্রেশন লগ';
+            adminBtn.className = 'control-btn';
+            adminBtn.onclick = showRegistrationLog;
+            adminBtn.style.background = 'linear-gradient(135deg, #e74c3c, #c0392b)';
+            adminBtn.style.color = 'white';
+            headerControls.appendChild(adminBtn);
+        }
+    }
+}
+
+// ✅ updateUserDisplay ফাংশন আপডেট করুন (অ্যাডমিন বাটন যোগ করতে)
+// পুরানো updateUserDisplay ফাংশনটি Replace করুন:
+function updateUserDisplay() {
+    const userDisplayElement = document.getElementById('userDisplay');
+    if (userDisplayElement && currentUser) {
+        const isAdmin = currentUser.username === 'admin';
+        
+        userDisplayElement.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.15); padding: 8px 16px; border-radius: 25px; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2);">
+                <div style="width: 36px; height: 36px; background: linear-gradient(135deg, ${isAdmin ? '#e74c3c' : '#e74c3c'}, ${isAdmin ? '#c0392b' : '#e67e22'}); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; cursor: pointer;" onclick="openProfileModal()" title="প্রোফাইল এডিট">
+                    ${currentUser.fullName.charAt(0).toUpperCase()}
+                </div>
+                <div style="display: flex; flex-direction: column;">
+                    <div style="font-weight: bold; font-size: 14px;">${currentUser.fullName} ${isAdmin ? '👑' : ''}</div>
+                    <div style="font-size: 11px; opacity: 0.8;">@${currentUser.username}</div>
+                </div>
+                <div style="display: flex; gap: 5px;">
+                    <button onclick="openProfileModal()" style="background: rgba(52, 152, 219, 0.8); color: white; border: none; padding: 6px 10px; border-radius: 15px; cursor: pointer; font-size: 11px; transition: all 0.3s ease;" title="প্রোফাইল এডিট">
+                        ✏️ এডিট
+                    </button>
+                    <button onclick="logout()" style="background: rgba(231, 76, 60, 0.8); color: white; border: none; padding: 6px 10px; border-radius: 15px; cursor: pointer; font-size: 11px; transition: all 0.3s ease;" title="লগআউট">
+                        🚪 লগআউট
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        // অ্যাডমিন বাটন যোগ করুন
+        addAdminPanelButton();
+    }
+}
+
+// DOMContentLoaded ইভেন্টের ভিতরে এই লাইন যোগ করুন (যেখানে অন্যান্য initialization আছে)
+document.addEventListener('DOMContentLoaded', function() {
+    // ... আপনার existing কোড ...
+    
+    // অ্যাডমিন বাটন চেক (লগইন হওয়ার পর)
+    setTimeout(() => {
+        if (currentUser && currentUser.username === 'admin') {
+            addAdminPanelButton();
+        }
+    }, 1000);
+});
 
 // প্রোফাইল মডাল ফাংশন
 function openProfileModal() {
