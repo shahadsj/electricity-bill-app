@@ -16,6 +16,18 @@ showMainApp = function() {
     }
 };
 
+async function getUserIP() {
+    try {
+        // ipapi.co সাধারণত CORS ব্লক করে না
+        const response = await fetch('https://ipapi.co/json/');
+        const data = await response.json();
+        return data.ip || "N/A";
+    } catch (e) {
+        console.error("IP Error:", e);
+        return "IP Hidden/Blocked";
+    }
+}
+
 // ==================== লগিন সিস্টেম ====================
 
 // ইউজার ডেটা স্ট্রাকচার
@@ -226,7 +238,7 @@ function handleLogin(event) {
     showNotification(`✅ স্বাগতম ${user.fullName}!`, 'success');
 }
 
-// রেজিস্ট্রেশন হ্যান্ডলার - ফিক্সড ভার্সন
+// রেজিস্ট্রেশন হ্যান্ডলার
 async function handleRegister(event) {
     event.preventDefault();
     
@@ -235,52 +247,112 @@ async function handleRegister(event) {
     const email = document.getElementById('email').value.trim();
     const password = document.getElementById('regPassword').value;
     const confirmPassword = document.getElementById('confirmPassword').value;
-    
-    if (!fullName || !username || !email || !password) {
-        showNotification('❌ সব ফিল্ড পূরণ করুন', 'error');
-        return;
-    }
-    
-    if (username.toLowerCase() === 'admin') {
-        showNotification('❌ "admin" ইউজারনাম ব্যবহার করা যাবে না!', 'error');
-        return;
-    }
-    
+
     if (password !== confirmPassword) {
         showNotification('❌ পাসওয়ার্ড মিলছে না', 'error');
         return;
     }
 
-    // IP অ্যাড্রেস ফেচ করা
-    let userIP = "Fetching...";
-    try {
-        const response = await fetch('https://api.ipify.org?format=json');
-        const data = await response.json();
-        userIP = data.ip;
-    } catch (e) { 
-        userIP = "Unknown/Offline";
-        console.log("IP fetch failed"); 
-    }
+    const userIP = await getUserIP();
     
-    // ডুপ্লিকেট ইউজার চেক
-    if (users.find(u => u.username === username)) {
-        showNotification('❌ এই ইউজারনাম ইতিমধ্যে ব্যবহৃত', 'error');
-        return;
-    }
-    
-    // নতুন ইউজার তৈরি
-    const newUser = new User(username, password, fullName, email);
-    newUser.ip = userIP; // IP যোগ করা হলো
-    newUser.device = navigator.platform + " (" + (navigator.userAgent.includes("Mobile") ? "Mobile" : "Desktop") + ")";
-    
+    const newUser = {
+        id: Date.now(),
+        fullName,
+        username,
+        email,
+        password: btoa(password + 'desco_salt'), // Simple hashing
+        ip: userIP,
+        device: navigator.platform,
+        timestamp: new Date().toISOString()
+    };
+
+    // ১. লোকাল সেভ
     users.push(newUser);
     saveUsers();
+
+    // ২. Firebase-এ লগ পাঠানো (যাতে অন্য ব্রাউজার থেকে অ্যাডমিন দেখতে পারে)
+    if (typeof database !== 'undefined') {
+        database.ref('registration_logs/' + newUser.id).set(newUser);
+    }
     
-    // ✅ রেজিস্ট্রেশন লগ সেভ (নিশ্চিতভাবে)
-    saveToRegistrationLog(newUser);
-    
-    showNotification('✅ অ্যাকাউন্ট তৈরি সফল! এখন লগিন করুন', 'success');
+    showNotification('✅ অ্যাকাউন্ট তৈরি সফল! লগইন করুন', 'success');
     showLoginForm();
+}
+
+// অ্যাডমিনের জন্য লগ দেখানোর ফাংশন (Firebase থেকে ডাটা আনা)
+function showRegistrationLog() {
+    if (!currentUser || currentUser.username !== 'admin') {
+        showNotification('❌ অনুমতি নেই!', 'error');
+        return;
+    }
+
+    showNotification('⏳ লগ লোড হচ্ছে...', 'info');
+
+    // Firebase থেকে সব লগ নিয়ে আসা
+    database.ref('registration_logs').once('value').then((snapshot) => {
+        const logs = snapshot.val();
+        if (!logs) {
+            showCustomModal('📋 রেজিস্ট্রেশন লগ', '<div style="text-align:center; padding:40px;">কোন লগ পাওয়া যায়নি।</div>');
+            return;
+        }
+
+        let html = `<div style="max-height: 500px; overflow-y: auto;">
+            <h3 style="text-align:center;">👥 রেজিস্ট্রেশন হিস্ট্রি (${Object.keys(logs).length})</h3>`;
+        
+        // লগগুলোকে সময় অনুযায়ী সাজানো
+        Object.values(logs).reverse().forEach(log => {
+            html += `
+                <div style="background:#f9f9f9; border-left:4px solid #27ae60; padding:12px; margin:10px 0; border-radius:8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                    <strong style="color: #2c3e50;">👤 ${log.fullName} (@${log.username})</strong><br>
+                    <small>📧 ${log.email}</small><br>
+                    <small>🌐 IP: <span style="color:#e67e22">${log.ip}</span> | 📱 Device: ${log.device}</small><br>
+                    <small>⏰ সময়: ${new Date(log.timestamp).toLocaleString('bn-BD')}</small>
+                </div>`;
+        });
+
+        html += `</div>`;
+        showCustomModal('রেজিস্ট্রেশন লগ', html);
+    });
+}
+
+// Firebase থেকে রিয়েল-টাইম ডাটা শোনার ফাংশন
+function startRealtimeSync() {
+    if (!currentUser) return;
+
+    const userRef = database.ref('meter_data/' + currentUser.id);
+
+    // যখনই ডাটাবেসে কিছু পরিবর্তন হবে, এই ফাংশনটি অটো চলবে
+    userRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            console.log("⚡ রিয়েল-টাইম ডাটা সিঙ্ক হচ্ছে...");
+            
+            // ডাটা লোকাল ভেরিয়েবলে সেট করা
+            transactions = data.transactions || [];
+            currentBalance = data.currentBalance || 0;
+            totalRecharge = data.totalRecharge || 0;
+            totalExpended = data.totalExpended || 0;
+
+            // UI আপডেট করা (পেজ রিফ্রেশ ছাড়াই)
+            updateBalanceDisplay();
+            if (typeof loadTransactionReport === 'function') loadTransactionReport();
+        }
+    });
+}
+
+// ডাটাবেসে সেভ করার ফাংশন (যাতে অন্য ব্রাউজারে সিঙ্ক হয়)
+function autoSyncToFirebase() {
+    if (!currentUser) return;
+
+    const allData = {
+        transactions: transactions,
+        currentBalance: currentBalance,
+        totalRecharge: totalRecharge,
+        totalExpended: totalExpended,
+        lastUpdated: Date.now()
+    };
+
+    database.ref('meter_data/' + currentUser.id).set(allData);
 }
 
 // লগ সেভ করার ফাংশন (FIXED)
