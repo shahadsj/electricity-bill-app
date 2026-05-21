@@ -16,16 +16,56 @@ showMainApp = function() {
     }
 };
 
+// ১. উন্নত IP Fetching
 async function getUserIP() {
     try {
-        // ipapi.co সাধারণত CORS ব্লক করে না
-        const response = await fetch('https://ipapi.co/json/');
+        const response = await fetch('https://api64.ipify.org?format=json');
         const data = await response.json();
-        return data.ip || "N/A";
+        return data.ip;
     } catch (e) {
-        console.error("IP Error:", e);
-        return "IP Hidden/Blocked";
+        try {
+            const res = await fetch('https://ipapi.co/json/');
+            const d = await res.json();
+            return d.ip;
+        } catch (err) {
+            return "Unknown (VPN/Blocked)";
+        }
     }
+}
+
+// ২. রেজিস্ট্রেশন লগ (সরাসরি Firebase থেকে আনা)
+async function showRegistrationLog() {
+    if (!currentUser || currentUser.username !== 'admin') {
+        showNotification('❌ অনুমতি নেই!', 'error');
+        return;
+    }
+
+    showNotification('⏳ ক্লাউড থেকে লগ লোড হচ্ছে...', 'info');
+
+    database.ref('registration_logs').once('value').then((snapshot) => {
+        const logs = snapshot.val();
+        if (!logs) {
+            showCustomModal('📋 রেজিস্ট্রেশন লগ', '<div style="text-align:center; padding:40px;">কোন লগ পাওয়া যায়নি।</div>');
+            return;
+        }
+
+        let html = `<div style="max-height: 500px; overflow-y: auto;">
+            <h3 style="text-align:center;">👥 রেজিস্ট্রেশন রিপোর্ট (${Object.keys(logs).length})</h3>`;
+        
+        Object.values(logs).reverse().forEach(log => {
+            // তারিখ ফিক্স: যদি timestamp না থাকে তবে current date
+            const dateStr = log.timestamp ? new Date(log.timestamp).toLocaleString('bn-BD') : "সময় পাওয়া যায়নি";
+            html += `
+                <div style="background:#f9f9f9; border-left:4px solid #27ae60; padding:12px; margin:10px 0; border-radius:8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                    <strong style="color: #2c3e50;">👤 ${log.fullName || log.name}</strong> (@${log.username})<br>
+                    <small>📧 ${log.email}</small><br>
+                    <small>🌐 IP: <span style="color:#e67e22">${log.ip || 'N/A'}</span> | 📱 Device: ${log.device || 'N/A'}</small><br>
+                    <small>⏰ সময়: ${dateStr}</small>
+                </div>`;
+        });
+        html += `</div>`;
+        showCustomModal('রেজিস্ট্রেশন লগ', html);
+    });
 }
 
 // ==================== লগিন সিস্টেম ====================
@@ -153,8 +193,14 @@ function checkExistingLogin() {
     if (savedUser) {
         try {
             currentUser = JSON.parse(savedUser);
+            
+            // ✅ রিফ্রেশ করার পরও সিঙ্ক চালু রাখা
+            if (typeof startRealtimeSync === 'function') {
+                startRealtimeSync(currentUser.id);
+            }
+            
             showMainApp();
-			updateUserDisplay();
+            updateUserDisplay();
         } catch (error) {
             console.error('Auto login failed:', error);
             showLoginModal();
@@ -173,7 +219,7 @@ function verifyPassword(user, password) {
     return user.password === hashPassword(password);
 }
 
-// লগিন হ্যান্ডলার - FIXED VERSION (with Admin ID fixed)
+// লগিন হ্যান্ডলার - FIXED VERSION (রিয়েল-টাইম সিঙ্ক সহ)
 function handleLogin(event) {
     event.preventDefault();
     
@@ -193,27 +239,25 @@ function handleLogin(event) {
         return;
     }
     
-    // পাসওয়ার্ড চেক - FIXED
+    // পাসওয়ার্ড চেক
     if (!verifyPassword(user, password)) {
         showNotification('❌ পাসওয়ার্ড ভুল', 'error');
         return;
     }
     
-    // ========== ADMIN ID FIX - সব জায়গায় একই ID থাকবে ==========
-    const ADMIN_FIXED_ID = 1779295853532; // Firefox এর admin ID
+    // ========== ADMIN ID FIX ==========
+    const ADMIN_FIXED_ID = 1779295853532; 
     
     if (user.username === 'admin') {
-        // পুরানো ইউজার Array তে ID আপডেট করুন
         const adminIndex = users.findIndex(u => u.username === 'admin');
         if (adminIndex !== -1) {
             users[adminIndex].id = ADMIN_FIXED_ID;
             user = users[adminIndex];
         }
-        console.log('✅ Admin ID fixed to:', ADMIN_FIXED_ID);
     }
     // ========== END ADMIN ID FIX ==========
     
-    // লগিন সফল
+    // লগিন সফল - কারেন্ট ইউজার অবজেক্ট তৈরি
     currentUser = {
         id: user.id,
         username: user.username,
@@ -225,12 +269,12 @@ function handleLogin(event) {
     user.lastLogin = new Date().toISOString();
     saveUsers();
     
-    // কারেন্ট ইউজার সেভ
+    // লোকাল স্টোরেজে সেভ
     localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(currentUser));
     
-    // Firebase এ ইউজার আইডি সেট করুন (Auto Sync এর জন্য)
-    if (typeof setFirebaseUser === 'function') {
-        setFirebaseUser(currentUser.id);
+    // ✅ রিয়েল-টাইম সিঙ্ক শুরু করা (Firebase Listener চালু হবে)
+    if (typeof startRealtimeSync === 'function') {
+        startRealtimeSync(currentUser.id);
     }
     
     showMainApp();
@@ -342,17 +386,24 @@ function startRealtimeSync() {
 
 // ডাটাবেসে সেভ করার ফাংশন (যাতে অন্য ব্রাউজারে সিঙ্ক হয়)
 function autoSyncToFirebase() {
-    if (!currentUser) return;
+    if (!currentUser || !currentUser.id || typeof database === 'undefined') return;
 
     const allData = {
-        transactions: transactions,
-        currentBalance: currentBalance,
-        totalRecharge: totalRecharge,
-        totalExpended: totalExpended,
-        lastUpdated: Date.now()
+        transactions: transactions || [],
+        monthlyRecharges: monthlyRecharges || [],
+        currentBalance: currentBalance || 0,
+        totalRecharge: totalRecharge || 0,
+        totalExpended: totalExpended || 0,
+        lastDemandChargeMonth: lastDemandChargeMonth || '',
+        meters: meters || [],
+        activeMeterId: activeMeterId || null,
+        settings: settings || {}, // এটি যোগ করলে সেটিংসও সিঙ্ক হবে
+        lastUpdated: firebase.database.ServerValue.TIMESTAMP
     };
 
-    database.ref('meter_data/' + currentUser.id).set(allData);
+    database.ref('meter_data/' + currentUser.id).set(allData)
+    .then(() => console.log("📤 ক্লাউড সিঙ্ক সফল!"))
+    .catch((err) => console.error("❌ সিঙ্ক এরর:", err));
 }
 
 // লগ সেভ করার ফাংশন (FIXED)
@@ -544,13 +595,12 @@ function saveProfile(event) {
     const newPassword = document.getElementById('editProfilePassword').value;
     const confirmPassword = document.getElementById('confirmProfilePassword').value;
     
-    // ভ্যালিডেশন
     if (!fullName || !username || !email) {
         showNotification('❌ নাম, ইউজারনেম এবং ইমেইল পূরণ করুন', 'error');
         return;
     }
     
-    // ইউজারনেম চেক (যদি পরিবর্তন করা হয়)
+    // ডুপ্লিকেট ইউজারনেম/ইমেইল চেক... (আপনার আগের কোড অনুযায়ী)
     if (username !== currentUser.username) {
         if (users.find(u => u.username === username && u.id !== currentUser.id)) {
             showNotification('❌ এই ইউজারনেম ইতিমধ্যে ব্যবহৃত', 'error');
@@ -558,7 +608,6 @@ function saveProfile(event) {
         }
     }
     
-    // ইমেইল চেক (যদি পরিবর্তন করা হয়)
     if (email !== currentUser.email) {
         if (users.find(u => u.email === email && u.id !== currentUser.id)) {
             showNotification('❌ এই ইমেইল ইতিমধ্যে রেজিস্টার্ড', 'error');
@@ -566,46 +615,35 @@ function saveProfile(event) {
         }
     }
     
-    // পাসওয়ার্ড চেক
-    if (newPassword) {
-        if (newPassword.length < 6) {
-            showNotification('❌ পাসওয়ার্ড অন্তত ৬ ক্যারেক্টার হতে হবে', 'error');
-            return;
-        }
-        
-        if (newPassword !== confirmPassword) {
-            showNotification('❌ পাসওয়ার্ড মিলছে না', 'error');
-            return;
-        }
+    if (newPassword && (newPassword.length < 6 || newPassword !== confirmPassword)) {
+        showNotification('❌ পাসওয়ার্ড চেক করুন (কমপক্ষে ৬ অক্ষর এবং মিল থাকতে হবে)', 'error');
+        return;
     }
     
     // ইউজার আপডেট করুন
     const userIndex = users.findIndex(u => u.id === currentUser.id);
     if (userIndex !== -1) {
         const user = users[userIndex];
-        
-        // ডেটা আপডেট
         user.fullName = fullName;
         user.username = username;
         user.email = email;
         
-        // পাসওয়ার্ড আপডেট (যদি দেওয়া হয়)
-        if (newPassword) {
-            user.password = user.hashPassword(newPassword);
-        }
+        if (newPassword) user.password = user.hashPassword(newPassword);
         
         // কারেন্ট ইউজার আপডেট
         currentUser.fullName = fullName;
         currentUser.username = username;
         currentUser.email = email;
         
-        // সেভ করুন
         saveUsers();
         localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(currentUser));
         
-        // UI আপডেট
-        updateUserDisplay();
+        // ✅ ক্লাউডে ইউজারের মেটাডেটা সিঙ্ক করা (ঐচ্ছিক কিন্তু ভালো)
+        if (typeof autoSyncToFirebase === 'function') {
+            autoSyncToFirebase();
+        }
         
+        updateUserDisplay();
         showNotification('✅ প্রোফাইল সফলভাবে আপডেট করা হয়েছে!', 'success');
         closeProfileModal();
     }
@@ -15396,6 +15434,54 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('✅ পেজ লোড সম্পূর্ণ');
 });
+
+// ডাটাবেস থেকে ডাটা শোনার লজিক (Listener) - IMPROVED
+function startRealtimeSync(userId) {
+    if (!userId || typeof database === 'undefined') return;
+
+    console.log("📡 রিয়েল-টাইম সিঙ্ক চালু হয়েছে... User ID:", userId);
+    
+    // Firebase-এর নির্দিষ্ট ইউজারের ডাটাবেস পাথে নজর রাখা
+    const dataRef = database.ref('meter_data/' + userId);
+
+    dataRef.on('value', (snapshot) => {
+        const cloudData = snapshot.val();
+        if (cloudData) {
+            console.log("✅ ক্লাউড থেকে নতুন ডাটা পাওয়া গেছে!");
+            
+            // ১. গ্লোবাল ভেরিয়েবল আপডেট (সবগুলো ডাটা একসাথে সিঙ্ক)
+            transactions = cloudData.transactions || [];
+            monthlyRecharges = cloudData.monthlyRecharges || [];
+            currentBalance = parseFloat(cloudData.currentBalance) || 0;
+            totalRecharge = parseFloat(cloudData.totalRecharge) || 0;
+            totalExpended = parseFloat(cloudData.totalExpended) || 0;
+            lastDemandChargeMonth = cloudData.lastDemandChargeMonth || '';
+            
+            // ২. মাল্টি-মিটার সাপোর্ট সিঙ্ক (যাতে অন্য ব্রাউজারেও মিটার লিস্ট এক থাকে)
+            if (cloudData.meters) {
+                meters = cloudData.meters;
+                localStorage.setItem('desco_meters', JSON.stringify(meters));
+            }
+            if (cloudData.activeMeterId) {
+                activeMeterId = cloudData.activeMeterId;
+                localStorage.setItem('desco_active_meter_id', activeMeterId);
+            }
+
+            // ৩. লোকাল স্টোরেজে সেভ (saveAllData ব্যবহার করা ভালো কারণ এটি সব কভার করে)
+            saveData(); // আপনার বিদ্যমান ফাংশন
+            localStorage.setItem('desco_currentBalance', currentBalance.toString());
+
+            // ৪. UI আপডেট করা (ইউজার যাতে পরিবর্তন সাথে সাথে দেখতে পায়)
+            updateBalanceDisplay();
+            updateMeterDisplay(); // মিটার নাম আপডেট করার জন্য
+            if (typeof loadTransactionReport === 'function') loadTransactionReport();
+            if (typeof updateProgressBar === 'function') updateProgressBar();
+            if (typeof updateUnitDisplay === 'function') updateUnitDisplay();
+        } else {
+            console.log("ℹ️ এই ইউজারের কোন ক্লাউড ডাটা নেই।");
+        }
+    });
+}
 
 // ========== window.load ইভেন্ট (অতিরিক্ত নিরাপত্তার জন্য) ==========
 window.addEventListener('load', function() {
