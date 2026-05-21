@@ -224,12 +224,39 @@ function handleLogin(event) {
     event.preventDefault();
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value;
-    
-    let user = users.find(u => u.username === username && u.isActive);
-    if (!user || !verifyPassword(user, password)) {
-        showNotification('❌ ইউজারনেম বা পাসওয়ার্ড ভুল', 'error');
-        return;
-    }
+    const hashedPass = btoa(password + 'desco_salt');
+
+    showNotification('⏳ যাচাই করা হচ্ছে...', 'info');
+
+    // Firebase থেকে সব ইউজার চেক করুন
+    database.ref('users').once('value').then((snapshot) => {
+        const usersData = snapshot.val();
+        let foundUser = null;
+
+        if (usersData) {
+            foundUser = Object.values(usersData).find(u => u.username === username && u.password === hashedPass);
+        }
+
+        if (foundUser) {
+            if (!foundUser.isActive) {
+                showNotification('❌ আপনার অ্যাকাউন্টটি ডিজেবল করা আছে', 'error');
+                return;
+            }
+
+            currentUser = foundUser;
+            localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(currentUser));
+            
+            // রিয়েল টাইম সিঙ্ক চালু
+            startRealtimeSync(currentUser.id);
+            
+            showMainApp();
+            updateUserDisplay();
+            showNotification(`✅ স্বাগতম ${foundUser.fullName}!`, 'success');
+        } else {
+            showNotification('❌ ইউজারনেম বা পাসওয়ার্ড ভুল', 'error');
+        }
+    });
+}
     
     // Admin ID Fix
     const ADMIN_FIXED_ID = 1779295853532; 
@@ -248,7 +275,7 @@ function handleLogin(event) {
     showNotification(`✅ স্বাগতম ${user.fullName}!`, 'success');
 }
 
-// রেজিস্ট্রেশন হ্যান্ডলার - ফিক্সড ভার্সন
+// নতুন ইউজার রেজিস্ট্রেশন (Firebase-এ সরাসরি সেভ)
 async function handleRegister(event) {
     event.preventDefault();
     
@@ -258,55 +285,34 @@ async function handleRegister(event) {
     const password = document.getElementById('regPassword').value;
     const confirmPassword = document.getElementById('confirmPassword').value;
 
-    // ভ্যালিডেশন
-    if (!fullName || !username || !email || !password) {
-        showNotification('❌ সব ফিল্ড পূরণ করুন', 'error');
-        return;
-    }
-
     if (password !== confirmPassword) {
         showNotification('❌ পাসওয়ার্ড মিলছে না', 'error');
         return;
     }
 
-    if (password.length < 6) {
-        showNotification('❌ পাসওয়ার্ড অন্তত ৬ অক্ষরের হতে হবে', 'error');
-        return;
-    }
-
-    // IP ফেচ করা
     const userIP = await getUserIP();
-    
+    const userId = Date.now(); // ইউনিক আইডি
+
     const newUser = {
-        id: Date.now(),
-        fullName: fullName,
-        username: username,
-        email: email,
-        password: btoa(password + 'desco_salt'), // Simple hashing
+        id: userId,
+        fullName,
+        username,
+        email,
+        password: btoa(password + 'desco_salt'), // সিম্পল হ্যাশিং
         ip: userIP,
-        device: navigator.platform + (navigator.userAgent.includes("Mobile") ? " (Mobile)" : " (Desktop)"),
-        timestamp: new Date().toISOString()
+        device: navigator.platform,
+        createdAt: new Date().toISOString(),
+        isActive: true
     };
 
-    // ডুপ্লিকেট চেক (লোকাল লিস্টে)
-    if (users.find(u => u.username === username)) {
-        showNotification('❌ এই ইউজারনেম ইতিমধ্যে ব্যবহৃত', 'error');
-        return;
-    }
-
-    // ১. লোকাল সেভ
-    users.push(newUser);
-    saveUsers();
-
-    // ২. Firebase-এ লগ পাঠানো (যাতে অন্য ব্রাউজার থেকে অ্যাডমিন দেখতে পারে)
-    if (typeof database !== 'undefined') {
-        database.ref('registration_logs/' + newUser.id).set(newUser)
-        .then(() => console.log("✅ Registration log synced to cloud"))
-        .catch(e => console.error("❌ Cloud logging failed", e));
-    }
-    
-    showNotification('✅ অ্যাকাউন্ট তৈরি সফল! এখন লগিন করুন', 'success');
-    showLoginForm();
+    // Firebase-এ ইউজার সেভ (এটিই এখন ইউজার লিস্ট হিসেবে কাজ করবে)
+    database.ref('users/' + userId).set(newUser)
+    .then(() => {
+        // আলাদা রেজিস্ট্রেশন লগ (অ্যাডমিনের সুবিধার জন্য)
+        database.ref('registration_logs/' + userId).set(newUser);
+        showNotification('✅ অ্যাকাউন্ট তৈরি সফল! লগইন করুন', 'success');
+        showLoginForm();
+    }).catch(e => showNotification('❌ ক্লাউড এরর!', 'error'));
 }
 
 // সব রেজিস্ট্রেশন লগ ক্লাউড থেকে লোড করার একক ফাংশন
@@ -396,32 +402,68 @@ function startRealtimeSync() {
     });
 }
 
-// ডাটাবেসে সেভ করার ফাংশন (যাতে অন্য ব্রাউজারে সিঙ্ক হয়)
+// ক্লাউডে সব ডাটা সিঙ্ক করার পূর্ণাঙ্গ ফাংশন
 function autoSyncToFirebase() {
+    // সেফটি চেক: ইউজার লগইন না থাকলে বা ডাটাবেস না থাকলে রিটার্ন করবে
     if (!currentUser || !currentUser.id || typeof database === 'undefined') return;
 
-    // ক্লাউডে পাঠানোর আগে একবার লেটেস্ট হিসাব নিশ্চিত করা
-    const txs = getActiveTransactions();
+    console.log("🔄 ক্লাউড সিঙ্ক শুরু হচ্ছে...");
+
+    // ১. ডাটাবেসে পাঠানোর আগে ট্রানজেকশন থেকে লেটেস্ট হিসাব বের করা (যাতে ভুল ডাটা না যায়)
+    const txs = getActiveTransactions() || [];
+    
+    const calcRecharge = txs
+        .filter(t => t.type === 'recharge')
+        .reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
+        
     const calcExpense = txs
         .filter(t => t.type === 'electricity_bill')
         .reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
 
+    // ২. সব ডাটা এক জায়গায় গুছিয়ে নেওয়া (The Master Object)
     const allData = {
+        // ব্যালেন্স ও হিসাব
+        currentBalance: currentBalance || 0,
+        totalRecharge: calcRecharge, 
+        totalExpended: calcExpense,
+        lastDemandChargeMonth: lastDemandChargeMonth || '',
+
+        // ট্রানজেকশন ও রিচার্জ লিস্ট
         transactions: transactions || [],
         monthlyRecharges: monthlyRecharges || [],
-        currentBalance: currentBalance,
-        totalRecharge: totalRecharge,
-        totalExpended: calcExpense, // হিসাব করা সঠিক মান
-        lastDemandChargeMonth: lastDemandChargeMonth || '',
+
+        // মিটার ম্যানেজমেন্ট (যাতে ইনকগনিটোতেও সব মিটার দেখায়)
         meters: meters || [],
         activeMeterId: activeMeterId || null,
+        meterInfo: meterInfo || {}, // বর্তমান মিটারের নাম ও নং
+
+        // সেটিংস ও ট্যারিফ (VAT, Rebate, Slab rates)
         settings: settings || {},
-        lastUpdated: Date.now()
+        tariffRates: tariffRates || [],
+
+        // মাসিক ইউনিট ট্র্যাকার (যেটি আপনার ব্যালেন্স সেকশনের নিচে আছে)
+        monthlyUnitData: monthlyUnitData || {
+            currentMonth: '',
+            currentMonthUnits: 0,
+            totalUnits: 0,
+            monthlyHistory: [],
+            lastResetDate: null
+        },
+
+        // মেটাডাটা
+        lastUpdated: firebase.database.ServerValue.TIMESTAMP, 
+        updatedBy: currentUser.username
     };
 
+    // ৩. Firebase-এ নির্দিষ্ট ইউজারের নোডে সব ডাটা সেভ করা
     database.ref('meter_data/' + currentUser.id).set(allData)
-    .then(() => console.log("📤 Cloud Sync Data Sent!"))
-    .catch((err) => console.error("❌ Sync Error:", err));
+    .then(() => {
+        console.log("✅ ক্লাউড সিঙ্ক সফল! সব তথ্য (Settings, Meters, Units) ব্যাকআপ হয়েছে।");
+    })
+    .catch((err) => {
+        console.error("❌ সিঙ্ক এরর:", err);
+        showNotification('⚠️ ক্লাউড সিঙ্ক ব্যর্থ হয়েছে!', 'error');
+    });
 }
 
 // লগ সেভ করার ফাংশন (FIXED)
@@ -839,48 +881,56 @@ function updateUserDisplay() {
 
 // ইউজার ম্যানেজমেন্ট ফাংশন (অ্যাডমিনের জন্য)
 function showUserManagement() {
-    if (!currentUser) return;
-    
-    let html = `
-        <div style="text-align: center; margin-bottom: 20px;">
-            <h3>👥 ইউজার ম্যানেজমেন্ট</h3>
-            <p>মোট ইউজার: ${users.length}</p>
-        </div>
-        
-        <div style="max-height: 400px; overflow-y: auto;">
-    `;
-    
-    users.forEach(user => {
-        const lastLogin = user.lastLogin ? new Date(user.lastLogin).toLocaleString('bn-BD') : 'Never';
-        
-        html += `
-            <div style="background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid ${user.isActive ? '#27ae60' : '#e74c3c'};">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
+    if (!currentUser || currentUser.username !== 'admin') {
+        showNotification('❌ শুধুমাত্র অ্যাডমিন এটি করতে পারেন', 'error');
+        return;
+    }
+
+    database.ref('users').once('value').then((snapshot) => {
+        const allUsers = snapshot.val();
+        if (!allUsers) return;
+
+        let html = `<div style="max-height: 500px; overflow-y: auto; padding: 10px;">
+            <h3 style="text-align:center;">👥 ইউজার ম্যানেজমেন্ট</h3>`;
+
+        Object.values(allUsers).forEach(user => {
+            if (user.username === 'admin') return; // অ্যাডমিন নিজেকে ডিলিট করতে পারবে না
+
+            html += `
+                <div style="background: white; border: 1px solid #ddd; padding: 12px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
                     <div>
-                        <div style="font-weight: bold;">${user.fullName}</div>
-                        <div style="color: #666; font-size: 14px;">
-                            @${user.username} • ${user.email}
-                        </div>
-                        <div style="color: #666; font-size: 12px;">
-                            Created: ${new Date(user.createdAt).toLocaleDateString('bn-BD')} | 
-                            Last Login: ${lastLogin}
-                        </div>
+                        <strong>${user.fullName} (@${user.username})</strong><br>
+                        <small>${user.email} | IP: ${user.ip || 'N/A'}</small>
                     </div>
                     <div style="display: flex; gap: 5px;">
-                        ${user.username !== 'admin' ? `
-                            <button onclick="toggleUserStatus(${user.id})" style="padding: 5px 10px; background: ${user.isActive ? '#e74c3c' : '#27ae60'}; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
-                                ${user.isActive ? 'Disable' : 'Enable'}
-                            </button>
-                        ` : ''}
+                        <button onclick="toggleUserStatusOnline(${user.id}, ${!user.isActive})" style="padding: 5px 8px; background: ${user.isActive ? '#f39c12' : '#2ecc71'}; color: white; border: none; border-radius: 4px; font-size: 11px;">
+                            ${user.isActive ? 'ডিজেবল' : 'এনেবল'}
+                        </button>
+                        <button onclick="deleteUserOnline(${user.id})" style="padding: 5px 8px; background: #e74c3c; color: white; border: none; border-radius: 4px; font-size: 11px;">
+                            ডিলিট
+                        </button>
                     </div>
-                </div>
-            </div>
-        `;
+                </div>`;
+        });
+
+        html += `</div>`;
+        showCustomModal('ইউজার লিস্ট', html);
     });
-    
-    html += `</div>`;
-    
-    showCustomModal('ইউজার ম্যানেজমেন্ট', html);
+}
+
+// ইউজার ডিলিট করার ফাংশন
+function deleteUserOnline(userId) {
+    if (confirm('⚠️ আপনি কি নিশ্চিত যে এই ইউজার এবং তার সব ডাটা ডিলিট করবেন?')) {
+        // ১. ইউজার প্রোফাইল মুছুন
+        database.ref('users/' + userId).remove();
+        // ২. ইউজারের মিটার ডাটা মুছুন
+        database.ref('meter_data/' + userId).remove();
+        // ৩. রেজিস্ট্রেশন লগ মুছুন
+        database.ref('registration_logs/' + userId).remove();
+        
+        showNotification('✅ ইউজার এবং ডাটা মুছে ফেলা হয়েছে', 'success');
+        showUserManagement(); // লিস্ট রিফ্রেশ
+    }
 }
 
 // ইউজার স্ট্যাটাস টগল
@@ -15415,28 +15465,30 @@ document.addEventListener('DOMContentLoaded', function() {
 function startRealtimeSync(userId) {
     if (!userId || typeof database === 'undefined') return;
 
-    const dataRef = database.ref('meter_data/' + userId);
-
-    dataRef.on('value', (snapshot) => {
+    database.ref('meter_data/' + userId).on('value', (snapshot) => {
         const cloudData = snapshot.val();
         if (cloudData) {
-            console.log("📥 New data received from Cloud...");
+            console.log("📥 ক্লাউড থেকে সব সেটিংস ও ডাটা সিঙ্ক হচ্ছে...");
             
+            // সব গ্লোবাল ভেরিয়েবল ক্লাউড থেকে সেট করা
             transactions = cloudData.transactions || [];
             monthlyRecharges = cloudData.monthlyRecharges || [];
             currentBalance = parseFloat(cloudData.currentBalance) || 0;
+            totalRecharge = parseFloat(cloudData.totalRecharge) || 0;
+            totalExpended = parseFloat(cloudData.totalExpended) || 0;
             lastDemandChargeMonth = cloudData.lastDemandChargeMonth || '';
             
-            // মিটার এবং সেটিংস আপডেট
+            // মিটার ইনফো এবং লিস্ট সিঙ্ক (সব ব্রাউজারে একই দেখাবে)
             if (cloudData.meters) meters = cloudData.meters;
             if (cloudData.activeMeterId) activeMeterId = cloudData.activeMeterId;
             if (cloudData.settings) settings = cloudData.settings;
+            if (cloudData.monthlyUnitData) monthlyUnitData = cloudData.monthlyUnitData; // ইউনিট ট্র্যাকার সিঙ্ক
 
-            // ডাটা পাওয়ার পর UI আপডেট করার কমান্ড
-            updateBalanceDisplay(); // এটি এখন ভেতর থেকে অটো ক্যালকুলেট করবে
-            updateMeterDisplay();
-            
+            // UI রিফ্রেশ
+            updateBalanceDisplay();
+            updateMeterDisplay(); // এটি এখন ইনকগনিটোতেও মিটার নাম দেখাবে
             if (typeof loadTransactionReport === 'function') loadTransactionReport();
+            if (typeof updateProgressBar === 'function') updateProgressBar();
             if (typeof updateUnitDisplay === 'function') updateUnitDisplay();
         }
     });
