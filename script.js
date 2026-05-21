@@ -1,72 +1,10 @@
-// ==================== লগইন ফাংশন আপডেট (FIXED) ====================
-const originalShowMainApp = typeof showMainApp === 'function' ? showMainApp : function() {
-    document.getElementById('mainApp').style.display = 'block';
-    document.getElementById('loginModal').style.display = 'none';
-};
+// স্টোরেজ কী
+const USERS_STORAGE_KEY = 'desco_users';
+const CURRENT_USER_KEY = 'desco_current_user';
 
-showMainApp = function() {
-    originalShowMainApp();
-    // Firebase ফাংশনটি আছে কি না চেক করে কল করা (যাতে এরর না আসে)
-    if (currentUser && currentUser.id) {
-        if (typeof setFirebaseUser === 'function') {
-            setFirebaseUser(currentUser.id);
-        } else {
-            console.warn('⚠️ setFirebaseUser function not found. Firebase sync skipped.');
-        }
-    }
-};
-
-// ১. উন্নত IP Fetching
-async function getUserIP() {
-    try {
-        const response = await fetch('https://api64.ipify.org?format=json');
-        const data = await response.json();
-        return data.ip;
-    } catch (e) {
-        try {
-            const res = await fetch('https://ipapi.co/json/');
-            const d = await res.json();
-            return d.ip;
-        } catch (err) {
-            return "Unknown (VPN/Blocked)";
-        }
-    }
-}
-
-// ২. রেজিস্ট্রেশন লগ (সরাসরি Firebase থেকে আনা)
-async function showRegistrationLog() {
-    if (!currentUser || currentUser.username !== 'admin') {
-        showNotification('❌ অনুমতি নেই!', 'error');
-        return;
-    }
-
-    showNotification('⏳ ক্লাউড থেকে লগ লোড হচ্ছে...', 'info');
-
-    database.ref('registration_logs').once('value').then((snapshot) => {
-        const logs = snapshot.val();
-        if (!logs) {
-            showCustomModal('📋 রেজিস্ট্রেশন লগ', '<div style="text-align:center; padding:40px;">কোন লগ পাওয়া যায়নি।</div>');
-            return;
-        }
-
-        let html = `<div style="max-height: 500px; overflow-y: auto;">
-            <h3 style="text-align:center;">👥 রেজিস্ট্রেশন রিপোর্ট (${Object.keys(logs).length})</h3>`;
-        
-        Object.values(logs).reverse().forEach(log => {
-            // তারিখ ফিক্স: যদি timestamp না থাকে তবে current date
-            const dateStr = log.timestamp ? new Date(log.timestamp).toLocaleString('bn-BD') : "সময় পাওয়া যায়নি";
-            html += `
-                <div style="background:#f9f9f9; border-left:4px solid #27ae60; padding:12px; margin:10px 0; border-radius:8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                    <strong style="color: #2c3e50;">👤 ${log.fullName || log.name}</strong> (@${log.username})<br>
-                    <small>📧 ${log.email}</small><br>
-                    <small>🌐 IP: <span style="color:#e67e22">${log.ip || 'N/A'}</span> | 📱 Device: ${log.device || 'N/A'}</small><br>
-                    <small>⏰ সময়: ${dateStr}</small>
-                </div>`;
-        });
-        html += `</div>`;
-        showCustomModal('রেজিস্ট্রেশন লগ', html);
-    });
-}
+// কারেন্ট ইউজার
+let currentUser = null;
+let users = [];
 
 // ==================== লগিন সিস্টেম ====================
 
@@ -93,13 +31,225 @@ class User {
     }
 }
 
-// কারেন্ট ইউজার
-let currentUser = null;
-let users = [];
+// ১. আইপি আনার উন্নত ফাংশন
+async function getUserIP() {
+    try {
+        const response = await fetch('https://api64.ipify.org?format=json');
+        const data = await response.json();
+        return data.ip || "Unknown";
+    } catch (e) {
+        try {
+            const res = await fetch('https://ipapi.co/json/');
+            const d = await res.json();
+            return d.ip || "Unknown";
+        } catch (err) {
+            return "CORS Blocked";
+        }
+    }
+}
 
-// স্টোরেজ কী
-const USERS_STORAGE_KEY = 'desco_users';
-const CURRENT_USER_KEY = 'desco_current_user';
+// ২. রেজিস্ট্রেশন হ্যান্ডলার (Firebase-এ সরাসরি সেভ)
+async function handleRegister(event) {
+    event.preventDefault();
+    
+    const fullName = document.getElementById('fullName').value.trim();
+    const username = document.getElementById('regUsername').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('regPassword').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+
+    if (!fullName || !username || !email || !password) {
+        showNotification('❌ সব ফিল্ড পূরণ করুন', 'error');
+        return;
+    }
+
+    if (password !== confirmPassword) {
+        showNotification('❌ পাসওয়ার্ড মিলছে না', 'error');
+        return;
+    }
+
+    showNotification('⏳ অ্যাকাউন্ট তৈরি হচ্ছে...', 'info');
+
+    const userIP = await getUserIP();
+    const userId = Date.now(); 
+
+    const newUser = {
+        id: userId,
+        fullName: fullName,
+        username: username,
+        email: email,
+        password: btoa(password + 'desco_salt'), 
+        ip: userIP,
+        device: navigator.platform + (navigator.userAgent.includes("Mobile") ? " (Mobile)" : " (Desktop)"),
+        createdAt: new Date().toISOString(),
+        timestamp: new Date().toISOString(), // এরর এড়াতে ডুপ্লিকেট কি রাখা হলো
+        isActive: true
+    };
+
+    // Firebase-এ ইউজার সেভ (অনলাইন ইউজার লিস্ট)
+    if (typeof database !== 'undefined') {
+        database.ref('users/' + userId).set(newUser)
+        .then(() => {
+            // আলাদা রেজিস্ট্রেশন লগ (অ্যাডমিনের সুবিধার জন্য)
+            database.ref('registration_logs/' + userId).set(newUser);
+            showNotification('✅ অ্যাকাউন্ট তৈরি সফল! লগইন করুন', 'success');
+            showLoginForm();
+        }).catch(e => {
+            console.error(e);
+            showNotification('❌ ক্লাউড এরর! ইন্টারনেট চেক করুন।', 'error');
+        });
+    }
+}
+
+// লগিন হ্যান্ডলার - অনলাইন ভার্সন (এটি Firebase থেকে ইউজার চেক করবে)
+async function handleLogin(event) {
+    event.preventDefault();
+    
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const hashedPass = btoa(password + 'desco_salt'); // আপনার ব্যবহৃত হ্যাশিং
+
+    if (!username || !password) {
+        showNotification('❌ ইউজারনেম এবং পাসওয়ার্ড দিন', 'error');
+        return;
+    }
+
+    showNotification('⏳ যাচাই করা হচ্ছে...', 'info');
+
+    try {
+        // Firebase এর 'users' টেবিল থেকে ডাটা চেক করা
+        const snapshot = await database.ref('users').once('value');
+        const usersData = snapshot.val();
+        let foundUser = null;
+
+        if (usersData) {
+            // ডাটাবেসে থাকা ইউজারদের মধ্য থেকে ম্যাচ করানো
+            foundUser = Object.values(usersData).find(u => u.username === username && u.password === hashedPass);
+        }
+
+        // ========== ADMIN ID FIX (ডাটাবেসে না থাকলেও এডমিন লগইন করতে পারবে) ==========
+        const ADMIN_FIXED_ID = 1779295853532; 
+        if (username === 'admin' && (password === 'admin123' || (foundUser && foundUser.password === hashedPass))) {
+             if(!foundUser) {
+                 foundUser = { 
+                    id: ADMIN_FIXED_ID, 
+                    username: 'admin', 
+                    fullName: 'System Administrator', 
+                    isActive: true,
+                    email: 'admin@system.com'
+                };
+             } else {
+                 foundUser.id = ADMIN_FIXED_ID; // আইডি নিশ্চিত করা
+             }
+        }
+        // ========================================================================
+
+        if (foundUser) {
+            if (!foundUser.isActive) {
+                showNotification('❌ আপনার অ্যাকাউন্টটি ডিজেবল করা আছে', 'error');
+                return;
+            }
+
+            // লগইন সফল - গ্লোবাল ভেরিয়েবল সেট করা
+            currentUser = foundUser;
+            
+            // ব্রাউজারে সেশন সেভ করা
+            localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(currentUser));
+            
+            // ✅ রিয়েল টাইম সিঙ্ক চালু (ক্লাউড থেকে ডাটা আনা শুরু হবে)
+            if (typeof startRealtimeSync === 'function') {
+                startRealtimeSync(currentUser.id);
+            }
+            
+            showMainApp();
+            updateUserDisplay();
+            showNotification(`✅ স্বাগতম ${foundUser.fullName}!`, 'success');
+        } else {
+            showNotification('❌ ইউজারনেম বা পাসওয়ার্ড ভুল', 'error');
+        }
+    } catch (error) {
+        console.error('Login Error:', error);
+        showNotification('❌ ক্লাউড সার্ভারে সমস্যা! ইন্টারনেট চেক করুন।', 'error');
+    }
+}
+
+// মেইন অ্যাপ দেখান
+function showMainApp() {
+    document.getElementById('mainApp').style.display = 'block';
+    document.getElementById('loginModal').style.display = 'none';
+    document.getElementById('registerModal').style.display = 'none';
+    
+    if (currentUser && currentUser.id) {
+        if (typeof startRealtimeSync === 'function') {
+            startRealtimeSync(currentUser.id);
+        }
+    }
+}
+
+// ইউজার ডিসপ্লে আপডেট - মাস্টার ভার্সন (Admin ও Profile এডিট সাপোর্ট সহ)
+function updateUserDisplay() {
+    const userDisplayElement = document.getElementById('userDisplay');
+    
+    if (userDisplayElement && currentUser) {
+        const isAdmin = currentUser.username === 'admin';
+        
+        // অ্যাডমিন এবং সাধারণ ইউজারের জন্য আলাদা কালার থিম
+        const avatarGradient = isAdmin 
+            ? 'linear-gradient(135deg, #e74c3c, #c0392b)' // অ্যাডমিন লাল
+            : 'linear-gradient(135deg, #e67e22, #d35400)'; // ইউজার কমলা
+
+        userDisplayElement.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.15); padding: 8px 16px; border-radius: 25px; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2);">
+                <!-- প্রোফাইল ছবি/প্রথম অক্ষর -->
+                <div style="width: 36px; height: 36px; background: ${avatarGradient}; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; cursor: pointer;" 
+                     onclick="openProfileModal()" title="প্রোফাইল এডিট">
+                    ${currentUser.fullName.charAt(0).toUpperCase()}
+                </div>
+                
+                <!-- নাম এবং ইউজারনেম -->
+                <div style="display: flex; flex-direction: column;">
+                    <div style="font-weight: bold; font-size: 14px; color: white;">
+                        ${currentUser.fullName} ${isAdmin ? '👑' : ''}
+                    </div>
+                    <div style="font-size: 11px; opacity: 0.8; color: white;">@${currentUser.username}</div>
+                </div>
+                
+                <!-- বাটনসমূহ -->
+                <div style="display: flex; gap: 5px;">
+                    <button onclick="openProfileModal()" style="background: rgba(52, 152, 219, 0.8); color: white; border: none; padding: 6px 10px; border-radius: 15px; cursor: pointer; font-size: 11px; transition: all 0.3s ease;" title="প্রোফাইল এডিট">
+                        ✏️ এডিট
+                    </button>
+                    <button onclick="logout()" style="background: rgba(231, 76, 60, 0.8); color: white; border: none; padding: 6px 10px; border-radius: 15px; cursor: pointer; font-size: 11px; transition: all 0.3s ease;" title="লগআউট">
+                        🚪 লগআউট
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        // যদি ইউজার অ্যাডমিন হয়, তবে স্পেশাল বাটন (Registration Log) যোগ করুন
+        if (isAdmin && typeof addAdminPanelButton === 'function') {
+            addAdminPanelButton();
+        }
+    }
+}
+
+// ==================== লগইন ফাংশন আপডেট (FIXED) ====================
+const originalShowMainApp = typeof showMainApp === 'function' ? showMainApp : function() {
+    document.getElementById('mainApp').style.display = 'block';
+    document.getElementById('loginModal').style.display = 'none';
+};
+
+showMainApp = function() {
+    originalShowMainApp();
+    // Firebase ফাংশনটি আছে কি না চেক করে কল করা (যাতে এরর না আসে)
+    if (currentUser && currentUser.id) {
+        if (typeof setFirebaseUser === 'function') {
+            setFirebaseUser(currentUser.id);
+        } else {
+            console.warn('⚠️ setFirebaseUser function not found. Firebase sync skipped.');
+        }
+    }
+};
 
 // DOMContentLoaded এ লগিন চেক করুন
 document.addEventListener('DOMContentLoaded', function() {
@@ -530,38 +680,6 @@ function addAdminPanelButton() {
     }
 }
 
-// ✅ updateUserDisplay ফাংশন আপডেট করুন (অ্যাডমিন বাটন যোগ করতে)
-// পুরানো updateUserDisplay ফাংশনটি Replace করুন:
-function updateUserDisplay() {
-    const userDisplayElement = document.getElementById('userDisplay');
-    if (userDisplayElement && currentUser) {
-        const isAdmin = currentUser.username === 'admin';
-        
-        userDisplayElement.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.15); padding: 8px 16px; border-radius: 25px; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2);">
-                <div style="width: 36px; height: 36px; background: linear-gradient(135deg, ${isAdmin ? '#e74c3c' : '#e74c3c'}, ${isAdmin ? '#c0392b' : '#e67e22'}); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; cursor: pointer;" onclick="openProfileModal()" title="প্রোফাইল এডিট">
-                    ${currentUser.fullName.charAt(0).toUpperCase()}
-                </div>
-                <div style="display: flex; flex-direction: column;">
-                    <div style="font-weight: bold; font-size: 14px;">${currentUser.fullName} ${isAdmin ? '👑' : ''}</div>
-                    <div style="font-size: 11px; opacity: 0.8;">@${currentUser.username}</div>
-                </div>
-                <div style="display: flex; gap: 5px;">
-                    <button onclick="openProfileModal()" style="background: rgba(52, 152, 219, 0.8); color: white; border: none; padding: 6px 10px; border-radius: 15px; cursor: pointer; font-size: 11px; transition: all 0.3s ease;" title="প্রোফাইল এডিট">
-                        ✏️ এডিট
-                    </button>
-                    <button onclick="logout()" style="background: rgba(231, 76, 60, 0.8); color: white; border: none; padding: 6px 10px; border-radius: 15px; cursor: pointer; font-size: 11px; transition: all 0.3s ease;" title="লগআউট">
-                        🚪 লগআউট
-                    </button>
-                </div>
-            </div>
-        `;
-        
-        // অ্যাডমিন বাটন যোগ করুন
-        addAdminPanelButton();
-    }
-}
-
 // DOMContentLoaded ইভেন্টের ভিতরে এই লাইন যোগ করুন (যেখানে অন্যান্য initialization আছে)
 document.addEventListener('DOMContentLoaded', function() {
     // ... আপনার existing কোড ...
@@ -654,32 +772,6 @@ function saveProfile(event) {
         updateUserDisplay();
         showNotification('✅ প্রোফাইল সফলভাবে আপডেট করা হয়েছে!', 'success');
         closeProfileModal();
-    }
-}
-
-// ইউজার ডিসপ্লে আপডেট (এডিট বাটন সহ) - FIXED VERSION
-function updateUserDisplay() {
-    const userDisplayElement = document.getElementById('userDisplay');
-    if (userDisplayElement && currentUser) {
-        userDisplayElement.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.15); padding: 8px 16px; border-radius: 25px; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2);">
-                <div style="width: 36px; height: 36px; background: linear-gradient(135deg, #e74c3c, #e67e22); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; cursor: pointer;" onclick="openProfileModal()" title="প্রোফাইল এডিট">
-                    ${currentUser.fullName.charAt(0).toUpperCase()}
-                </div>
-                <div style="display: flex; flex-direction: column;">
-                    <div style="font-weight: bold; font-size: 14px;">${currentUser.fullName}</div>
-                    <div style="font-size: 11px; opacity: 0.8;">@${currentUser.username}</div>
-                </div>
-                <div style="display: flex; gap: 5px;">
-                    <button onclick="openProfileModal()" style="background: rgba(52, 152, 219, 0.8); color: white; border: none; padding: 6px 10px; border-radius: 15px; cursor: pointer; font-size: 11px; transition: all 0.3s ease;" title="প্রোফাইল এডিট">
-                        ✏️ এডিট
-                    </button>
-                    <button onclick="logout()" style="background: rgba(231, 76, 60, 0.8); color: white; border: none; padding: 6px 10px; border-radius: 15px; cursor: pointer; font-size: 11px; transition: all 0.3s ease;" title="লগআউট">
-                        🚪 লগআউট
-                    </button>
-                </div>
-            </div>
-        `;
     }
 }
 
@@ -819,16 +911,6 @@ if (document.readyState === 'loading') {
     }, 100);
 }
 
-// মেইন অ্যাপ দেখান
-function showMainApp() {
-    document.getElementById('mainApp').style.display = 'block';
-    document.getElementById('loginModal').style.display = 'none';
-    document.getElementById('registerModal').style.display = 'none';
-    
-    // ইউজার ইনফো শো করুন
-    updateUserDisplay();
-}
-
 // লগিন মডাল দেখান
 function showLoginModal() {
     document.getElementById('mainApp').style.display = 'none';
@@ -851,32 +933,6 @@ function showLoginForm() {
     document.getElementById('registerModal').style.display = 'none';
     document.getElementById('loginModal').style.display = 'flex';
     document.getElementById('loginForm').reset();
-}
-
-// ইউজার ডিসপ্লে আপডেট - EDITED VERSION
-function updateUserDisplay() {
-    const userDisplayElement = document.getElementById('userDisplay');
-    if (userDisplayElement && currentUser) {
-        userDisplayElement.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.15); padding: 8px 16px; border-radius: 25px; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2);">
-                <div style="width: 36px; height: 36px; background: linear-gradient(135deg, #e74c3c, #e67e22); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; cursor: pointer;" onclick="openProfileModal()" title="প্রোফাইল এডিট">
-                    ${currentUser.fullName.charAt(0).toUpperCase()}
-                </div>
-                <div style="display: flex; flex-direction: column;">
-                    <div style="font-weight: bold; font-size: 14px;">${currentUser.fullName}</div>
-                    <div style="font-size: 11px; opacity: 0.8;">@${currentUser.username}</div>
-                </div>
-                <div style="display: flex; gap: 5px;">
-                    <button onclick="openProfileModal()" style="background: rgba(52, 152, 219, 0.8); color: white; border: none; padding: 6px 10px; border-radius: 15px; cursor: pointer; font-size: 11px; transition: all 0.3s ease;" title="প্রোফাইল এডিট">
-                        ✏️ এডিট
-                    </button>
-                    <button onclick="logout()" style="background: rgba(231, 76, 60, 0.8); color: white; border: none; padding: 6px 10px; border-radius: 15px; cursor: pointer; font-size: 11px; transition: all 0.3s ease;" title="লগআউট">
-                        🚪 লগআউট
-                    </button>
-                </div>
-            </div>
-        `;
-    }
 }
 
 // ইউজার ম্যানেজমেন্ট ফাংশন (অ্যাডমিনের জন্য)
