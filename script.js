@@ -194,8 +194,8 @@ function checkExistingLogin() {
         try {
             currentUser = JSON.parse(savedUser);
             
-            // ✅ রিফ্রেশ করার পরও সিঙ্ক চালু রাখা
-            if (typeof startRealtimeSync === 'function') {
+            // ✅ এটিই ম্যাজিক লাইন: রিফ্রেশ করলেও ক্লাউডের সাথে কানেকশন তৈরি করবে
+            if (currentUser && currentUser.id) {
                 startRealtimeSync(currentUser.id);
             }
             
@@ -222,60 +222,26 @@ function verifyPassword(user, password) {
 // লগিন হ্যান্ডলার - FIXED VERSION (রিয়েল-টাইম সিঙ্ক সহ)
 function handleLogin(event) {
     event.preventDefault();
-    
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value;
     
-    if (!username || !password) {
-        showNotification('❌ ইউজারনেম এবং পাসওয়ার্ড দিন', 'error');
-        return;
-    }
-    
-    // ইউজার খুঁজুন
     let user = users.find(u => u.username === username && u.isActive);
-    
-    if (!user) {
-        showNotification('❌ ইউজারনেম ভুল', 'error');
+    if (!user || !verifyPassword(user, password)) {
+        showNotification('❌ ইউজারনেম বা পাসওয়ার্ড ভুল', 'error');
         return;
     }
     
-    // পাসওয়ার্ড চেক
-    if (!verifyPassword(user, password)) {
-        showNotification('❌ পাসওয়ার্ড ভুল', 'error');
-        return;
-    }
-    
-    // ========== ADMIN ID FIX ==========
+    // Admin ID Fix
     const ADMIN_FIXED_ID = 1779295853532; 
-    
     if (user.username === 'admin') {
-        const adminIndex = users.findIndex(u => u.username === 'admin');
-        if (adminIndex !== -1) {
-            users[adminIndex].id = ADMIN_FIXED_ID;
-            user = users[adminIndex];
-        }
+        user.id = ADMIN_FIXED_ID;
     }
-    // ========== END ADMIN ID FIX ==========
     
-    // লগিন সফল - কারেন্ট ইউজার অবজেক্ট তৈরি
-    currentUser = {
-        id: user.id,
-        username: user.username,
-        fullName: user.fullName,
-        email: user.email
-    };
-    
-    // লাস্ট লগিন আপডেট
-    user.lastLogin = new Date().toISOString();
-    saveUsers();
-    
-    // লোকাল স্টোরেজে সেভ
+    currentUser = { id: user.id, username: user.username, fullName: user.fullName, email: user.email };
     localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(currentUser));
-    
-    // ✅ রিয়েল-টাইম সিঙ্ক শুরু করা (Firebase Listener চালু হবে)
-    if (typeof startRealtimeSync === 'function') {
-        startRealtimeSync(currentUser.id);
-    }
+
+    // ✅ লগইন করার সাথে সাথে সিঙ্ক চালু
+    startRealtimeSync(currentUser.id);
     
     showMainApp();
     updateUserDisplay();
@@ -15440,45 +15406,34 @@ function startRealtimeSync(userId) {
     if (!userId || typeof database === 'undefined') return;
 
     console.log("📡 রিয়েল-টাইম সিঙ্ক চালু হয়েছে... User ID:", userId);
-    
-    // Firebase-এর নির্দিষ্ট ইউজারের ডাটাবেস পাথে নজর রাখা
     const dataRef = database.ref('meter_data/' + userId);
 
+    // .on('value') ব্যবহার করায় ক্লাউডে চেঞ্জ হওয়া মাত্রই এই ফাংশনটি অটো চলবে
     dataRef.on('value', (snapshot) => {
         const cloudData = snapshot.val();
         if (cloudData) {
-            console.log("✅ ক্লাউড থেকে নতুন ডাটা পাওয়া গেছে!");
+            console.log("🔔 ক্লাউড থেকে আপডেট পাওয়া গেছে!");
             
-            // ১. গ্লোবাল ভেরিয়েবল আপডেট (সবগুলো ডাটা একসাথে সিঙ্ক)
+            // ডাটা আপডেট
             transactions = cloudData.transactions || [];
             monthlyRecharges = cloudData.monthlyRecharges || [];
             currentBalance = parseFloat(cloudData.currentBalance) || 0;
             totalRecharge = parseFloat(cloudData.totalRecharge) || 0;
             totalExpended = parseFloat(cloudData.totalExpended) || 0;
             lastDemandChargeMonth = cloudData.lastDemandChargeMonth || '';
-            
-            // ২. মাল্টি-মিটার সাপোর্ট সিঙ্ক (যাতে অন্য ব্রাউজারেও মিটার লিস্ট এক থাকে)
-            if (cloudData.meters) {
-                meters = cloudData.meters;
-                localStorage.setItem('desco_meters', JSON.stringify(meters));
-            }
-            if (cloudData.activeMeterId) {
-                activeMeterId = cloudData.activeMeterId;
-                localStorage.setItem('desco_active_meter_id', activeMeterId);
-            }
+            meters = cloudData.meters || meters;
+            activeMeterId = cloudData.activeMeterId || activeMeterId;
+            settings = cloudData.settings || settings;
 
-            // ৩. লোকাল স্টোরেজে সেভ (saveAllData ব্যবহার করা ভালো কারণ এটি সব কভার করে)
-            saveData(); // আপনার বিদ্যমান ফাংশন
-            localStorage.setItem('desco_currentBalance', currentBalance.toString());
+            // লোকাল স্টোরেজ আপডেট (যাতে অফলাইনেও লেটেস্ট ডাটা থাকে)
+            saveData(); 
 
-            // ৪. UI আপডেট করা (ইউজার যাতে পরিবর্তন সাথে সাথে দেখতে পায়)
+            // UI আপডেট
             updateBalanceDisplay();
-            updateMeterDisplay(); // মিটার নাম আপডেট করার জন্য
+            updateMeterDisplay();
             if (typeof loadTransactionReport === 'function') loadTransactionReport();
             if (typeof updateProgressBar === 'function') updateProgressBar();
             if (typeof updateUnitDisplay === 'function') updateUnitDisplay();
-        } else {
-            console.log("ℹ️ এই ইউজারের কোন ক্লাউড ডাটা নেই।");
         }
     });
 }
