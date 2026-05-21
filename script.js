@@ -248,7 +248,7 @@ function handleLogin(event) {
     showNotification(`✅ স্বাগতম ${user.fullName}!`, 'success');
 }
 
-// নতুন ইউজার রেজিস্ট্রেশন (Firebase-এ সরাসরি সেভ)
+// রেজিস্ট্রেশন হ্যান্ডলার - ফিক্সড ভার্সন
 async function handleRegister(event) {
     event.preventDefault();
     
@@ -258,34 +258,55 @@ async function handleRegister(event) {
     const password = document.getElementById('regPassword').value;
     const confirmPassword = document.getElementById('confirmPassword').value;
 
+    // ভ্যালিডেশন
+    if (!fullName || !username || !email || !password) {
+        showNotification('❌ সব ফিল্ড পূরণ করুন', 'error');
+        return;
+    }
+
     if (password !== confirmPassword) {
         showNotification('❌ পাসওয়ার্ড মিলছে না', 'error');
         return;
     }
 
-    const userIP = await getUserIP();
-    const userId = Date.now(); // ইউনিক আইডি
+    if (password.length < 6) {
+        showNotification('❌ পাসওয়ার্ড অন্তত ৬ অক্ষরের হতে হবে', 'error');
+        return;
+    }
 
+    // IP ফেচ করা
+    const userIP = await getUserIP();
+    
     const newUser = {
-        id: userId,
-        fullName,
-        username,
-        email,
-        password: btoa(password + 'desco_salt'), // সিম্পল হ্যাশিং
+        id: Date.now(),
+        fullName: fullName,
+        username: username,
+        email: email,
+        password: btoa(password + 'desco_salt'), // Simple hashing
         ip: userIP,
-        device: navigator.platform,
-        createdAt: new Date().toISOString(),
-        isActive: true
+        device: navigator.platform + (navigator.userAgent.includes("Mobile") ? " (Mobile)" : " (Desktop)"),
+        timestamp: new Date().toISOString()
     };
 
-    // Firebase-এ ইউজার সেভ (এটিই এখন ইউজার লিস্ট হিসেবে কাজ করবে)
-    database.ref('users/' + userId).set(newUser)
-    .then(() => {
-        // আলাদা রেজিস্ট্রেশন লগ (অ্যাডমিনের সুবিধার জন্য)
-        database.ref('registration_logs/' + userId).set(newUser);
-        showNotification('✅ অ্যাকাউন্ট তৈরি সফল! লগইন করুন', 'success');
-        showLoginForm();
-    }).catch(e => showNotification('❌ ক্লাউড এরর!', 'error'));
+    // ডুপ্লিকেট চেক (লোকাল লিস্টে)
+    if (users.find(u => u.username === username)) {
+        showNotification('❌ এই ইউজারনেম ইতিমধ্যে ব্যবহৃত', 'error');
+        return;
+    }
+
+    // ১. লোকাল সেভ
+    users.push(newUser);
+    saveUsers();
+
+    // ২. Firebase-এ লগ পাঠানো (যাতে অন্য ব্রাউজার থেকে অ্যাডমিন দেখতে পারে)
+    if (typeof database !== 'undefined') {
+        database.ref('registration_logs/' + newUser.id).set(newUser)
+        .then(() => console.log("✅ Registration log synced to cloud"))
+        .catch(e => console.error("❌ Cloud logging failed", e));
+    }
+    
+    showNotification('✅ অ্যাকাউন্ট তৈরি সফল! এখন লগিন করুন', 'success');
+    showLoginForm();
 }
 
 // সব রেজিস্ট্রেশন লগ ক্লাউড থেকে লোড করার একক ফাংশন
