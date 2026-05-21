@@ -224,39 +224,12 @@ function handleLogin(event) {
     event.preventDefault();
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value;
-    const hashedPass = btoa(password + 'desco_salt');
-
-    showNotification('⏳ যাচাই করা হচ্ছে...', 'info');
-
-    // Firebase থেকে সব ইউজার চেক করুন
-    database.ref('users').once('value').then((snapshot) => {
-        const usersData = snapshot.val();
-        let foundUser = null;
-
-        if (usersData) {
-            foundUser = Object.values(usersData).find(u => u.username === username && u.password === hashedPass);
-        }
-
-        if (foundUser) {
-            if (!foundUser.isActive) {
-                showNotification('❌ আপনার অ্যাকাউন্টটি ডিজেবল করা আছে', 'error');
-                return;
-            }
-
-            currentUser = foundUser;
-            localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(currentUser));
-            
-            // রিয়েল টাইম সিঙ্ক চালু
-            startRealtimeSync(currentUser.id);
-            
-            showMainApp();
-            updateUserDisplay();
-            showNotification(`✅ স্বাগতম ${foundUser.fullName}!`, 'success');
-        } else {
-            showNotification('❌ ইউজারনেম বা পাসওয়ার্ড ভুল', 'error');
-        }
-    });
-}
+    
+    let user = users.find(u => u.username === username && u.isActive);
+    if (!user || !verifyPassword(user, password)) {
+        showNotification('❌ ইউজারনেম বা পাসওয়ার্ড ভুল', 'error');
+        return;
+    }
     
     // Admin ID Fix
     const ADMIN_FIXED_ID = 1779295853532; 
