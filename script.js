@@ -400,22 +400,28 @@ function startRealtimeSync() {
 function autoSyncToFirebase() {
     if (!currentUser || !currentUser.id || typeof database === 'undefined') return;
 
+    // ক্লাউডে পাঠানোর আগে একবার লেটেস্ট হিসাব নিশ্চিত করা
+    const txs = getActiveTransactions();
+    const calcExpense = txs
+        .filter(t => t.type === 'electricity_bill')
+        .reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
+
     const allData = {
         transactions: transactions || [],
         monthlyRecharges: monthlyRecharges || [],
-        currentBalance: currentBalance || 0,
-        totalRecharge: totalRecharge || 0,
-        totalExpended: totalExpended || 0,
+        currentBalance: currentBalance,
+        totalRecharge: totalRecharge,
+        totalExpended: calcExpense, // হিসাব করা সঠিক মান
         lastDemandChargeMonth: lastDemandChargeMonth || '',
         meters: meters || [],
         activeMeterId: activeMeterId || null,
-        settings: settings || {}, // এটি যোগ করলে সেটিংসও সিঙ্ক হবে
-        lastUpdated: firebase.database.ServerValue.TIMESTAMP
+        settings: settings || {},
+        lastUpdated: Date.now()
     };
 
     database.ref('meter_data/' + currentUser.id).set(allData)
-    .then(() => console.log("📤 ক্লাউড সিঙ্ক সফল!"))
-    .catch((err) => console.error("❌ সিঙ্ক এরর:", err));
+    .then(() => console.log("📤 Cloud Sync Data Sent!"))
+    .catch((err) => console.error("❌ Sync Error:", err));
 }
 
 // লগ সেভ করার ফাংশন (FIXED)
@@ -4447,7 +4453,16 @@ function resetMeterHistory() {
 // ব্যালেন্স ডিসপ্লে আপডেট ফাংশন - ফাইনাল ভার্সন
 function updateBalanceDisplay() {
     try {
-        // NaN চেক এবং ফিক্স
+        // --- নতুন যোগ করা অংশ (নিরাপত্তার জন্য) ---
+        // যদি ডাটাবেস থেকে ভুলক্রমে খরচ ০ আসে, তবে ট্রানজেকশন থেকে সেটি ক্যালকুলেট করে নেবে
+        const txs = getActiveTransactions();
+        if (transactions && transactions.length > 0) {
+            totalRecharge = txs.filter(t => t.type === 'recharge').reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
+            totalExpended = txs.filter(t => t.type === 'electricity_bill').reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
+        }
+        // ---------------------------------------
+
+        // NaN চেক এবং ফিক্স (আপনার অরিজিনাল কোড)
         let bal = parseFloat(currentBalance);
         let rec = parseFloat(totalRecharge);
         let exp = parseFloat(totalExpended);
@@ -4472,7 +4487,7 @@ function updateBalanceDisplay() {
             }
         }
         
-        // UI আপডেট
+        // UI আপডেট (আপনার অরিজিনাল কোড)
         const balanceEl = document.getElementById('currentBalance');
         const rechargeEl = document.getElementById('totalRecharge');
         const expendedEl = document.getElementById('totalExpended');
@@ -4481,7 +4496,7 @@ function updateBalanceDisplay() {
         if (rechargeEl) rechargeEl.textContent = rec.toFixed(2);
         if (expendedEl) expendedEl.textContent = exp.toFixed(2);
         
-        // রিপোর্ট সামারি
+        // রিপোর্ট সামারি (আপনার অরিজিনাল কোড)
         const depositEl = document.getElementById('totalDeposit');
         const expenseEl = document.getElementById('totalExpense');
         const txCountEl = document.getElementById('totalTransactions');
@@ -4491,6 +4506,9 @@ function updateBalanceDisplay() {
         if (txCountEl) txCountEl.textContent = transactions?.length || 0;
         
         console.log('💰 ব্যালেন্স আপডেট:', bal);
+
+        // প্রোগ্রেস বার থাকলে সেটিও আপডেট হবে
+        if (typeof updateProgressBar === 'function') updateProgressBar();
         
     } catch (error) {
         console.error('Balance display error:', error);
@@ -15377,34 +15395,28 @@ document.addEventListener('DOMContentLoaded', function() {
 function startRealtimeSync(userId) {
     if (!userId || typeof database === 'undefined') return;
 
-    console.log("📡 রিয়েল-টাইম সিঙ্ক চালু হয়েছে... User ID:", userId);
     const dataRef = database.ref('meter_data/' + userId);
 
-    // .on('value') ব্যবহার করায় ক্লাউডে চেঞ্জ হওয়া মাত্রই এই ফাংশনটি অটো চলবে
     dataRef.on('value', (snapshot) => {
         const cloudData = snapshot.val();
         if (cloudData) {
-            console.log("🔔 ক্লাউড থেকে আপডেট পাওয়া গেছে!");
+            console.log("📥 New data received from Cloud...");
             
-            // ডাটা আপডেট
             transactions = cloudData.transactions || [];
             monthlyRecharges = cloudData.monthlyRecharges || [];
             currentBalance = parseFloat(cloudData.currentBalance) || 0;
-            totalRecharge = parseFloat(cloudData.totalRecharge) || 0;
-            totalExpended = parseFloat(cloudData.totalExpended) || 0;
             lastDemandChargeMonth = cloudData.lastDemandChargeMonth || '';
-            meters = cloudData.meters || meters;
-            activeMeterId = cloudData.activeMeterId || activeMeterId;
-            settings = cloudData.settings || settings;
+            
+            // মিটার এবং সেটিংস আপডেট
+            if (cloudData.meters) meters = cloudData.meters;
+            if (cloudData.activeMeterId) activeMeterId = cloudData.activeMeterId;
+            if (cloudData.settings) settings = cloudData.settings;
 
-            // লোকাল স্টোরেজ আপডেট (যাতে অফলাইনেও লেটেস্ট ডাটা থাকে)
-            saveData(); 
-
-            // UI আপডেট
-            updateBalanceDisplay();
+            // ডাটা পাওয়ার পর UI আপডেট করার কমান্ড
+            updateBalanceDisplay(); // এটি এখন ভেতর থেকে অটো ক্যালকুলেট করবে
             updateMeterDisplay();
+            
             if (typeof loadTransactionReport === 'function') loadTransactionReport();
-            if (typeof updateProgressBar === 'function') updateProgressBar();
             if (typeof updateUnitDisplay === 'function') updateUnitDisplay();
         }
     });
