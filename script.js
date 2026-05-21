@@ -402,68 +402,32 @@ function startRealtimeSync() {
     });
 }
 
-// ক্লাউডে সব ডাটা সিঙ্ক করার পূর্ণাঙ্গ ফাংশন
+// ডাটাবেসে সেভ করার ফাংশন (যাতে অন্য ব্রাউজারে সিঙ্ক হয়)
 function autoSyncToFirebase() {
-    // সেফটি চেক: ইউজার লগইন না থাকলে বা ডাটাবেস না থাকলে রিটার্ন করবে
     if (!currentUser || !currentUser.id || typeof database === 'undefined') return;
 
-    console.log("🔄 ক্লাউড সিঙ্ক শুরু হচ্ছে...");
-
-    // ১. ডাটাবেসে পাঠানোর আগে ট্রানজেকশন থেকে লেটেস্ট হিসাব বের করা (যাতে ভুল ডাটা না যায়)
-    const txs = getActiveTransactions() || [];
-    
-    const calcRecharge = txs
-        .filter(t => t.type === 'recharge')
-        .reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
-        
+    // ক্লাউডে পাঠানোর আগে একবার লেটেস্ট হিসাব নিশ্চিত করা
+    const txs = getActiveTransactions();
     const calcExpense = txs
         .filter(t => t.type === 'electricity_bill')
         .reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
 
-    // ২. সব ডাটা এক জায়গায় গুছিয়ে নেওয়া (The Master Object)
     const allData = {
-        // ব্যালেন্স ও হিসাব
-        currentBalance: currentBalance || 0,
-        totalRecharge: calcRecharge, 
-        totalExpended: calcExpense,
-        lastDemandChargeMonth: lastDemandChargeMonth || '',
-
-        // ট্রানজেকশন ও রিচার্জ লিস্ট
         transactions: transactions || [],
         monthlyRecharges: monthlyRecharges || [],
-
-        // মিটার ম্যানেজমেন্ট (যাতে ইনকগনিটোতেও সব মিটার দেখায়)
+        currentBalance: currentBalance,
+        totalRecharge: totalRecharge,
+        totalExpended: calcExpense, // হিসাব করা সঠিক মান
+        lastDemandChargeMonth: lastDemandChargeMonth || '',
         meters: meters || [],
         activeMeterId: activeMeterId || null,
-        meterInfo: meterInfo || {}, // বর্তমান মিটারের নাম ও নং
-
-        // সেটিংস ও ট্যারিফ (VAT, Rebate, Slab rates)
         settings: settings || {},
-        tariffRates: tariffRates || [],
-
-        // মাসিক ইউনিট ট্র্যাকার (যেটি আপনার ব্যালেন্স সেকশনের নিচে আছে)
-        monthlyUnitData: monthlyUnitData || {
-            currentMonth: '',
-            currentMonthUnits: 0,
-            totalUnits: 0,
-            monthlyHistory: [],
-            lastResetDate: null
-        },
-
-        // মেটাডাটা
-        lastUpdated: firebase.database.ServerValue.TIMESTAMP, 
-        updatedBy: currentUser.username
+        lastUpdated: Date.now()
     };
 
-    // ৩. Firebase-এ নির্দিষ্ট ইউজারের নোডে সব ডাটা সেভ করা
     database.ref('meter_data/' + currentUser.id).set(allData)
-    .then(() => {
-        console.log("✅ ক্লাউড সিঙ্ক সফল! সব তথ্য (Settings, Meters, Units) ব্যাকআপ হয়েছে।");
-    })
-    .catch((err) => {
-        console.error("❌ সিঙ্ক এরর:", err);
-        showNotification('⚠️ ক্লাউড সিঙ্ক ব্যর্থ হয়েছে!', 'error');
-    });
+    .then(() => console.log("📤 Cloud Sync Data Sent!"))
+    .catch((err) => console.error("❌ Sync Error:", err));
 }
 
 // লগ সেভ করার ফাংশন (FIXED)
@@ -881,56 +845,48 @@ function updateUserDisplay() {
 
 // ইউজার ম্যানেজমেন্ট ফাংশন (অ্যাডমিনের জন্য)
 function showUserManagement() {
-    if (!currentUser || currentUser.username !== 'admin') {
-        showNotification('❌ শুধুমাত্র অ্যাডমিন এটি করতে পারেন', 'error');
-        return;
-    }
-
-    database.ref('users').once('value').then((snapshot) => {
-        const allUsers = snapshot.val();
-        if (!allUsers) return;
-
-        let html = `<div style="max-height: 500px; overflow-y: auto; padding: 10px;">
-            <h3 style="text-align:center;">👥 ইউজার ম্যানেজমেন্ট</h3>`;
-
-        Object.values(allUsers).forEach(user => {
-            if (user.username === 'admin') return; // অ্যাডমিন নিজেকে ডিলিট করতে পারবে না
-
-            html += `
-                <div style="background: white; border: 1px solid #ddd; padding: 12px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+    if (!currentUser) return;
+    
+    let html = `
+        <div style="text-align: center; margin-bottom: 20px;">
+            <h3>👥 ইউজার ম্যানেজমেন্ট</h3>
+            <p>মোট ইউজার: ${users.length}</p>
+        </div>
+        
+        <div style="max-height: 400px; overflow-y: auto;">
+    `;
+    
+    users.forEach(user => {
+        const lastLogin = user.lastLogin ? new Date(user.lastLogin).toLocaleString('bn-BD') : 'Never';
+        
+        html += `
+            <div style="background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid ${user.isActive ? '#27ae60' : '#e74c3c'};">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div>
-                        <strong>${user.fullName} (@${user.username})</strong><br>
-                        <small>${user.email} | IP: ${user.ip || 'N/A'}</small>
+                        <div style="font-weight: bold;">${user.fullName}</div>
+                        <div style="color: #666; font-size: 14px;">
+                            @${user.username} • ${user.email}
+                        </div>
+                        <div style="color: #666; font-size: 12px;">
+                            Created: ${new Date(user.createdAt).toLocaleDateString('bn-BD')} | 
+                            Last Login: ${lastLogin}
+                        </div>
                     </div>
                     <div style="display: flex; gap: 5px;">
-                        <button onclick="toggleUserStatusOnline(${user.id}, ${!user.isActive})" style="padding: 5px 8px; background: ${user.isActive ? '#f39c12' : '#2ecc71'}; color: white; border: none; border-radius: 4px; font-size: 11px;">
-                            ${user.isActive ? 'ডিজেবল' : 'এনেবল'}
-                        </button>
-                        <button onclick="deleteUserOnline(${user.id})" style="padding: 5px 8px; background: #e74c3c; color: white; border: none; border-radius: 4px; font-size: 11px;">
-                            ডিলিট
-                        </button>
+                        ${user.username !== 'admin' ? `
+                            <button onclick="toggleUserStatus(${user.id})" style="padding: 5px 10px; background: ${user.isActive ? '#e74c3c' : '#27ae60'}; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                                ${user.isActive ? 'Disable' : 'Enable'}
+                            </button>
+                        ` : ''}
                     </div>
-                </div>`;
-        });
-
-        html += `</div>`;
-        showCustomModal('ইউজার লিস্ট', html);
+                </div>
+            </div>
+        `;
     });
-}
-
-// ইউজার ডিলিট করার ফাংশন
-function deleteUserOnline(userId) {
-    if (confirm('⚠️ আপনি কি নিশ্চিত যে এই ইউজার এবং তার সব ডাটা ডিলিট করবেন?')) {
-        // ১. ইউজার প্রোফাইল মুছুন
-        database.ref('users/' + userId).remove();
-        // ২. ইউজারের মিটার ডাটা মুছুন
-        database.ref('meter_data/' + userId).remove();
-        // ৩. রেজিস্ট্রেশন লগ মুছুন
-        database.ref('registration_logs/' + userId).remove();
-        
-        showNotification('✅ ইউজার এবং ডাটা মুছে ফেলা হয়েছে', 'success');
-        showUserManagement(); // লিস্ট রিফ্রেশ
-    }
+    
+    html += `</div>`;
+    
+    showCustomModal('ইউজার ম্যানেজমেন্ট', html);
 }
 
 // ইউজার স্ট্যাটাস টগল
@@ -15465,30 +15421,28 @@ document.addEventListener('DOMContentLoaded', function() {
 function startRealtimeSync(userId) {
     if (!userId || typeof database === 'undefined') return;
 
-    database.ref('meter_data/' + userId).on('value', (snapshot) => {
+    const dataRef = database.ref('meter_data/' + userId);
+
+    dataRef.on('value', (snapshot) => {
         const cloudData = snapshot.val();
         if (cloudData) {
-            console.log("📥 ক্লাউড থেকে সব সেটিংস ও ডাটা সিঙ্ক হচ্ছে...");
+            console.log("📥 New data received from Cloud...");
             
-            // সব গ্লোবাল ভেরিয়েবল ক্লাউড থেকে সেট করা
             transactions = cloudData.transactions || [];
             monthlyRecharges = cloudData.monthlyRecharges || [];
             currentBalance = parseFloat(cloudData.currentBalance) || 0;
-            totalRecharge = parseFloat(cloudData.totalRecharge) || 0;
-            totalExpended = parseFloat(cloudData.totalExpended) || 0;
             lastDemandChargeMonth = cloudData.lastDemandChargeMonth || '';
             
-            // মিটার ইনফো এবং লিস্ট সিঙ্ক (সব ব্রাউজারে একই দেখাবে)
+            // মিটার এবং সেটিংস আপডেট
             if (cloudData.meters) meters = cloudData.meters;
             if (cloudData.activeMeterId) activeMeterId = cloudData.activeMeterId;
             if (cloudData.settings) settings = cloudData.settings;
-            if (cloudData.monthlyUnitData) monthlyUnitData = cloudData.monthlyUnitData; // ইউনিট ট্র্যাকার সিঙ্ক
 
-            // UI রিফ্রেশ
-            updateBalanceDisplay();
-            updateMeterDisplay(); // এটি এখন ইনকগনিটোতেও মিটার নাম দেখাবে
+            // ডাটা পাওয়ার পর UI আপডেট করার কমান্ড
+            updateBalanceDisplay(); // এটি এখন ভেতর থেকে অটো ক্যালকুলেট করবে
+            updateMeterDisplay();
+            
             if (typeof loadTransactionReport === 'function') loadTransactionReport();
-            if (typeof updateProgressBar === 'function') updateProgressBar();
             if (typeof updateUnitDisplay === 'function') updateUnitDisplay();
         }
     });
