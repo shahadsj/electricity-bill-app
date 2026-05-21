@@ -5817,26 +5817,44 @@ function updateProgressBar() {
         const progressFill = document.getElementById('balanceProgress');
         if (!progressFill) return;
         
-        // ✅ সরল Net Balance Calculation
-        let netUsableBalance = currentBalance;
+        // ১. ডিফল্ট রেফারেন্স সেট করা
+        let netUsableBalance = 0;
         
-        // সর্বশেষ রিচার্জ থেকে net usable amount বের করুন
-        if (monthlyRecharges.length > 0) {
-            const lastRecharge = monthlyRecharges[monthlyRecharges.length - 1];
-            if (lastRecharge && lastRecharge.billDetails) {
-                netUsableBalance = lastRecharge.billDetails.energyCost;
+        // ২. সর্বশেষ রিচার্জ থেকে net usable amount বের করার উন্নত লজিক
+        if (monthlyRecharges && monthlyRecharges.length > 0) {
+            // শেষ দিক থেকে লুপ চালিয়ে লেটেস্ট রিচার্জটি খুঁজুন যাতে billDetails আছে
+            for (let i = monthlyRecharges.length - 1; i >= 0; i--) {
+                const recharge = monthlyRecharges[i];
+                if (recharge.billDetails && recharge.billDetails.energyCost > 0) {
+                    netUsableBalance = recharge.billDetails.energyCost;
+                    break; 
+                }
             }
         }
         
-        // Max = Net Usable Amount (663.12 টাকা আপনার উদাহরণে)
-        const maxNetBalance = netUsableBalance; // রিচার্জের সময় এটাই 100% হবে
+        // ৩. লজিক প্রোটেকশন (আপনার সেম লজিক কিন্তু ফিক্সড)
+        // যদি কোন রিচার্জ না থাকে বা এনার্জি কস্ট ০ হয়, তবে ব্যালেন্সকেই রেফারেন্স ধরুন
+        // কিন্তু সেটি অন্তত ১০০০ বা ব্যালেন্সের সমান হতে হবে যাতে ১০০% না দেখায়
+        let maxNetBalance = netUsableBalance;
         
+        if (maxNetBalance <= 0) {
+            // যদি কোন রিচার্জ ডাটা না থাকে, তবে একটি স্ট্যান্ডার্ড ১০০০ টাকা লিমিট ধরুন 
+            // যাতে বারটি ১০০% না হয়ে ব্যালেন্স অনুযায়ী পজিশন নেয়
+            maxNetBalance = currentBalance > 1000 ? currentBalance : 1000;
+        }
+
+        // যদি আগের ব্যালেন্স জমার কারণে কারেন্ট ব্যালেন্স রিচার্জের চেয়ে বেশি হয়
+        if (currentBalance > maxNetBalance) {
+            maxNetBalance = currentBalance;
+        }
+        
+        // ৪. পার্সেন্টেজ ক্যালকুলেশন (আপনার অরিজিনাল ক্যালকুলেশন)
         const balancePercentage = (currentBalance / maxNetBalance) * 100;
         const displayPercentage = Math.max(0, Math.min(balancePercentage, 100));
         
         progressFill.style.width = displayPercentage + '%';
         
-        // Basic color coding
+        // ৫. কালার কোডিং (আপনার অরিজিনাল কালার স্কিম)
         if (displayPercentage > 80) {
             progressFill.style.background = '#2ecc71'; // Green
         } else if (displayPercentage > 60) {
@@ -5848,6 +5866,8 @@ function updateProgressBar() {
         } else {
             progressFill.style.background = '#e74c3c'; // Red
         }
+        
+        console.log(`📊 বার আপডেট: ${displayPercentage.toFixed(2)}% | রেফারেন্স: ${maxNetBalance}`);
         
     } catch (error) {
         console.error('❌ Progress bar update error:', error);
