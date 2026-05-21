@@ -233,8 +233,8 @@ function handleLogin(event) {
     showNotification(`✅ স্বাগতম ${user.fullName}!`, 'success');
 }
 
-// রেজিস্টার হ্যান্ডলার - আপডেটেড ভার্সন
-function handleRegister(event) {
+// নতুন ইউজার রেজিস্ট্রেশন হ্যান্ডলার (Async করা হয়েছে IP পাওয়ার জন্য)
+async function handleRegister(event) {
     event.preventDefault();
     
     const fullName = document.getElementById('fullName').value.trim();
@@ -243,130 +243,142 @@ function handleRegister(event) {
     const password = document.getElementById('regPassword').value;
     const confirmPassword = document.getElementById('confirmPassword').value;
     
-    // ভ্যালিডেশন
     if (!fullName || !username || !email || !password) {
         showNotification('❌ সব ফিল্ড পূরণ করুন', 'error');
         return;
     }
     
-    // ❌ কেউ 'admin' ইউজারনাম দিয়ে রেজিস্টার করতে পারবে না
     if (username.toLowerCase() === 'admin') {
         showNotification('❌ "admin" ইউজারনাম ব্যবহার করা যাবে না!', 'error');
         return;
     }
-    
-    if (password.length < 6) {
-        showNotification('❌ পাসওয়ার্ড অন্তত ৬ ক্যারেক্টার হতে হবে', 'error');
-        return;
-    }
-    
+
     if (password !== confirmPassword) {
         showNotification('❌ পাসওয়ার্ড মিলছে না', 'error');
         return;
     }
-    
-    // ইউজারনাম চেক
+
+    // IP অ্যাড্রেস আনার চেষ্টা
+    let userIP = "Unknown";
+    try {
+        const response = await fetch('https://api.ipify.org?format=json');
+        const data = await response.json();
+        userIP = data.ip;
+    } catch (e) { console.log("IP fetch failed"); }
+
+    // ইউজার চেক
     if (users.find(u => u.username === username)) {
-        showNotification('❌ এই ইউজারনাম ইতিমধ্যে exists', 'error');
+        showNotification('❌ এই ইউজারনাম ইতিমধ্যে বিদ্যমান', 'error');
         return;
     }
-    
-    // ইমেইল চেক
-    if (users.find(u => u.email === email)) {
-        showNotification('❌ এই ইমেইল ইতিমধ্যে registered', 'error');
-        return;
-    }
-    
-    // নতুন ইউজার তৈরি
+
+    // নতুন ইউজার অবজেক্ট
     const newUser = new User(username, password, fullName, email);
+    newUser.ip = userIP; // IP যোগ করা হলো
+    newUser.userAgent = navigator.userAgent; // ব্রাউজার তথ্য
+    
     users.push(newUser);
     saveUsers();
     
-    // ✅ শুধুমাত্র অ্যাডমিন নোটিফিকেশন পাবে
-    sendAdminNotification(newUser);
+    // লগ সেভ করা (এটি সবসময় সেভ হবে)
+    saveToRegistrationLog(newUser);
+    
+    // অ্যাডমিনকে নোটিফিকেশন দেখানো (যদি অ্যাডমিন লগইন থাকে)
+    if (currentUser && currentUser.username === 'admin') {
+        showLiveAdminNotification(newUser);
+    }
     
     showNotification('✅ অ্যাকাউন্ট তৈরি সফল! এখন লগিন করুন', 'success');
     showLoginForm();
 }
 
-// ✅ নতুন ফাংশন: অ্যাডমিনকে নোটিফিকেশন পাঠান
-function sendAdminNotification(newUser) {
-    // চেক করুন বর্তমান লগিন করা ইউজার অ্যাডমিন কিনা
-    if (currentUser && currentUser.username === 'admin') {
-        // অ্যাপের ভিতরে নোটিফিকেশন দেখান (শুধু অ্যাডমিনের জন্য)
-        const notificationHTML = `
-            <div style="
-                position: fixed;
-                top: 80px;
-                right: 20px;
-                background: linear-gradient(135deg, #667eea, #764ba2);
-                color: white;
-                padding: 15px 20px;
-                border-radius: 12px;
-                box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-                z-index: 10000;
-                animation: slideInRight 0.5s ease;
-                max-width: 350px;
-                border-left: 4px solid #f1c40f;
-            ">
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <div style="font-size: 24px;">👤</div>
-                    <div style="flex: 1;">
-                        <div style="font-weight: bold; margin-bottom: 5px;">নতুন ইউজার রেজিস্টার করেছেন!</div>
-                        <div style="font-size: 12px; opacity: 0.9;">
-                            <div>👤 নাম: ${newUser.fullName}</div>
-                            <div>🔑 ইউজারনেম: ${newUser.username}</div>
-                            <div>📧 ইমেইল: ${newUser.email}</div>
-                            <div>📅 সময়: ${new Date().toLocaleString('bn-BD')}</div>
-                        </div>
-                    </div>
-                    <button onclick="this.parentElement.parentElement.remove()" style="
-                        background: rgba(255,255,255,0.2);
-                        border: none;
-                        color: white;
-                        cursor: pointer;
-                        padding: 5px 10px;
-                        border-radius: 5px;
-                    ">✕</button>
-                </div>
-            </div>
-        `;
-        
-        // নোটিফিকেশন এলিমেন্ট যোগ করুন
-        const notificationDiv = document.createElement('div');
-        notificationDiv.innerHTML = notificationHTML;
-        document.body.appendChild(notificationDiv);
-        
-        // ৮ সেকেন্ড পর অটো রিমুভ
-        setTimeout(() => {
-            if (notificationDiv && notificationDiv.parentElement) {
-                notificationDiv.remove();
-            }
-        }, 8000);
-        
-        // কনসোলেও লগ রাখুন
-        console.log('📢 নতুন ইউজার রেজিস্টার:', {
+// রেজিস্ট্রেশন লগ সেভ করার ফাংশন
+function saveToRegistrationLog(newUser) {
+    try {
+        const logEntry = {
+            id: Date.now(),
             name: newUser.fullName,
             username: newUser.username,
             email: newUser.email,
-            time: new Date().toISOString()
-        });
+            ip: newUser.ip || 'N/A',
+            device: navigator.platform,
+            time: new Date().toISOString(),
+            count: (JSON.parse(localStorage.getItem('registration_log') || '[]').length + 1)
+        };
+
+        const registrationLog = JSON.parse(localStorage.getItem('registration_log') || '[]');
+        registrationLog.push(logEntry);
         
-        // সাউন্ড প্লে করুন (অপশনাল)
-        try {
-            const audio = new Audio('data:audio/wav;base64,U3RlYWx0aCBzb3VuZA==');
-            audio.play().catch(e => console.log('Sound play failed:', e));
-        } catch(e) {}
+        // সর্বোচ্চ ১০০টি লগ রাখুন
+        if (registrationLog.length > 100) registrationLog.shift();
+        
+        localStorage.setItem('registration_log', JSON.stringify(registrationLog));
+        console.log('📝 রেজিস্ট্রেশন লগ সেভ হয়েছে:', logEntry);
+    } catch (e) {
+        console.error('Log saving error:', e);
+    }
+}
+
+// রেজিস্ট্রেশন লগ দেখানোর উন্নত ফাংশন
+function showRegistrationLog() {
+    if (!currentUser || currentUser.username !== 'admin') {
+        showNotification('❌ শুধুমাত্র অ্যাডমিন এই লগ দেখতে পারেন!', 'error');
+        return;
     }
     
-    // লোকাল স্টোরেজেও সেভ করুন (নতুন রেজিস্ট্রেশনের লগ)
     const registrationLog = JSON.parse(localStorage.getItem('registration_log') || '[]');
-    registrationLog.push({
-        user: newUser,
-        timestamp: new Date().toISOString(),
-        adminNotified: currentUser && currentUser.username === 'admin'
+    
+    if (registrationLog.length === 0) {
+        showCustomModal('📋 রেজিস্ট্রেশন লগ', '<div style="text-align:center; padding:40px;">এখনো কোন রেজিস্ট্রেশন লগ নেই</div>');
+        return;
+    }
+    
+    let logHTML = `
+        <div style="max-height: 500px; overflow-y: auto; padding: 10px;">
+            <div style="background: #2c3e50; color: white; padding: 15px; border-radius: 10px; margin-bottom: 15px; text-align: center;">
+                <h3 style="margin:0;">📋 ইউজার রেজিস্ট্রেশন রিপোর্ট</h3>
+                <small>মোট ইউজার সংখ্যা: ${toBanglaNumber(registrationLog.length)} জন</small>
+            </div>
+    `;
+    
+    // নতুনগুলো আগে দেখাবে (Reverse)
+    [...registrationLog].reverse().forEach((log, index) => {
+        const regDate = new Date(log.time).toLocaleString('bn-BD');
+        logHTML += `
+            <div style="background: white; border: 1px solid #ddd; padding: 12px; margin-bottom: 10px; border-radius: 8px; border-left: 5px solid #3498db; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                    <strong style="color: #2c3e50;">👤 ${log.name}</strong>
+                    <span style="font-size: 11px; background: #eee; padding: 2px 8px; border-radius: 10px;">#${registrationLog.length - index}</span>
+                </div>
+                <div style="font-size: 13px; color: #555;">
+                    <div>📧 ইমেইল: ${log.email}</div>
+                    <div>🔑 ইউজারনেম: @${log.username}</div>
+                    <div>🌐 IP: <span style="color: #e67e22; font-weight: bold;">${log.ip}</span></div>
+                    <div>📱 ডিভাইস: ${log.device}</div>
+                    <div style="margin-top: 5px; font-size: 11px; color: #999; border-top: 1px dashed #eee; padding-top: 5px;">
+                        ⏰ সময়: ${regDate}
+                    </div>
+                </div>
+            </div>
+        `;
     });
-    localStorage.setItem('registration_log', JSON.stringify(registrationLog.slice(-50))); // সর্বশেষ 50টি রাখুন
+    
+    logHTML += `
+        <button onclick="clearRegLog()" style="width: 100%; padding: 10px; background: #e74c3c; color: white; border: none; border-radius: 5px; cursor: pointer; margin-top: 10px;">
+            🗑️ সব লগ মুছে ফেলুন
+        </button>
+    </div>`;
+    
+    showCustomModal('ইউজার রেজিস্ট্রেশন লগ', logHTML);
+}
+
+// লগ ক্লিয়ার করার ফাংশন
+function clearRegLog() {
+    if (confirm('আপনি কি সব রেজিস্ট্রেশন লগ মুছে ফেলতে চান?')) {
+        localStorage.removeItem('registration_log');
+        showNotification('✅ সব লগ মুছে ফেলা হয়েছে', 'success');
+        closeModal();
+    }
 }
 
 // ✅ রেজিস্ট্রেশন লগ দেখান (শুধু অ্যাডমিনের জন্য)
