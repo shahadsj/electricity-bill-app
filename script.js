@@ -33,7 +33,7 @@ async function getUserIP() {
     }
 }
 
-// ==================== পার্মানেন্ট ফিক্স: রেজিস্ট্রেশন লগ (Individual Delete সহ) ====================
+// ==================== ফাইনাল ও কার্যকরী ভার্সন (এটিই শুধুমাত্র থাকবে) ====================
 
 // প্রতিটি এন্ট্রি ডিলিট করার ফাংশন
 async function deleteLogEntry(logId) {
@@ -42,15 +42,14 @@ async function deleteLogEntry(logId) {
     try {
         await database.ref('registration_logs/' + logId).remove();
         showNotification('✅ লগ সফলভাবে ডিলিট হয়েছে!', 'success');
-        // লিস্ট রিফ্রেশ করা
-        showRegistrationLog(); 
+        showRegistrationLog(); // লিস্ট রিফ্রেশ করা
     } catch (error) {
         console.error("Delete Error:", error);
         showNotification('❌ ডিলিট করতে সমস্যা হয়েছে', 'error');
     }
 }
 
-// মূল লগ ভিউ ফাংশন
+// মূল লগ ভিউ ফাংশন (Firebase + Individual Delete)
 async function showRegistrationLog() {
     if (!currentUser || currentUser.username !== 'admin') {
         showNotification('❌ শুধুমাত্র অ্যাডমিন অনুমতিপ্রাপ্ত!', 'error');
@@ -84,12 +83,10 @@ async function showRegistrationLog() {
             
             logHTML += `
                 <div style="background: white; padding: 15px; margin: 12px 0; border-radius: 12px; border-left: 6px solid #27ae60; box-shadow: 0 4px 8px rgba(0,0,0,0.06); position: relative; border: 1px solid #eee;">
-                    <!-- ইন্ডিভিজুয়াল ডিলিট বাটন -->
                     <button onclick="deleteLogEntry('${log.id}')" 
                             style="position: absolute; top: 10px; right: 10px; background: #ffebee; color: #e74c3c; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.3s;"
                             onmouseover="this.style.background='#e74c3c'; this.style.color='white'"
-                            onmouseout="this.style.background='#ffebee'; this.style.color='#e74c3c'"
-                            title="লগ ডিলিট করুন">
+                            onmouseout="this.style.background='#ffebee'; this.style.color='#e74c3c'">
                         🗑️
                     </button>
 
@@ -98,13 +95,10 @@ async function showRegistrationLog() {
                         <strong style="color: #2c3e50; font-size: 16px;">${log.fullName || log.name}</strong>
                         <span style="font-size: 11px; color: #95a5a6;">#${logArray.length - index}</span>
                     </div>
-
                     <div style="color: #34495e; font-size: 13px; margin-left: 30px;">
                         📧 ${log.email} | <span style="color:#2980b9;">@${log.username}</span>
                     </div>
-
                     <hr style="border: 0; border-top: 1px solid #f1f1f1; margin: 12px 0;">
-
                     <div style="font-size: 12px; color: #7f8c8d; margin-left: 30px; line-height: 1.6;">
                         <div>🌐 <b>IP:</b> <span style="color: #e67e22;">${log.ip || 'N/A'}</span></div>
                         <div>📱 <b>Device:</b> ${log.device || 'N/A'}</div>
@@ -114,24 +108,21 @@ async function showRegistrationLog() {
             `;
         });
 
-        // সব ক্লিয়ার করার বাটন (নিচে)
         logHTML += `
             <button onclick="if(confirm('সব লগ মুছে ফেলবেন?')) { database.ref('registration_logs').remove(); closeModal(); }" 
-                    style="width: 100%; padding: 12px; background: #fdf2f2; color: #e74c3c; border: 1px solid #f5c6cb; border-radius: 8px; cursor: pointer; margin-top: 15px; font-weight: bold; transition: 0.3s;"
-                    onmouseover="this.style.background='#e74c3c'; this.style.color='white'">
+                    style="width: 100%; padding: 12px; background: #fdf2f2; color: #e74c3c; border: 1px solid #f5c6cb; border-radius: 8px; cursor: pointer; margin-top: 15px; font-weight: bold;">
                 🗑️ সব লগ ক্লিয়ার করুন
             </button>
         </div>`;
 
         showCustomModal('📋 রেজিস্ট্রেশন লগ', logHTML);
-
     } catch (e) {
         console.error("Firebase Error:", e);
         showNotification('❌ তথ্য লোড করতে ব্যর্থ!', 'error');
     }
 }
 
-// গ্লোবাল ফাংশন হিসেবে সেট করা
+// গ্লোবাল এক্সেস নিশ্চিত করা
 window.showRegistrationLog = showRegistrationLog;
 window.deleteLogEntry = deleteLogEntry;
 
@@ -356,7 +347,7 @@ async function handleRegister(event) {
     showLoginForm();
 }
 
-// অ্যাডমিনের জন্য লগ দেখানোর ফাংশন (Firebase থেকে ডাটা আনা)
+/* // অ্যাডমিনের জন্য লগ দেখানোর ফাংশন (Firebase থেকে ডাটা আনা)
 function showRegistrationLog() {
     if (!currentUser || currentUser.username !== 'admin') {
         showNotification('❌ অনুমতি নেই!', 'error');
@@ -390,7 +381,7 @@ function showRegistrationLog() {
         html += `</div>`;
         showCustomModal('রেজিস্ট্রেশন লগ', html);
     });
-}
+} */
 
 // Firebase থেকে রিয়েল-টাইম ডাটা শোনার ফাংশন
 function startRealtimeSync() {
@@ -486,7 +477,7 @@ function saveToRegistrationLog(newUser) {
     }
 }
 
-function showRegistrationLog() {
+/* function showRegistrationLog() {
     if (!currentUser || currentUser.username !== 'admin') {
         showNotification('❌ শুধুমাত্র অ্যাডমিন এই ফিচার ব্যবহার করতে পারেন!', 'error');
         return;
@@ -536,7 +527,7 @@ function showRegistrationLog() {
     </div>`;
     
     showCustomModal('📋 রেজিস্ট্রেশন লগ', logHTML);
-}
+} */
 
 // ✅ অ্যাডমিন প্যানেলে বাটন যোগ করুন (শুধু অ্যাডমিন লগিন করলে)
 function addAdminPanelButton() {
