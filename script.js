@@ -222,19 +222,14 @@ function loadUsers() {
         const savedUsers = localStorage.getItem(USERS_STORAGE_KEY);
         if (savedUsers) {
             const parsedUsers = JSON.parse(savedUsers);
-            // JSON থেকে লোড করা users কে User class instance এ convert করুন
             users = parsedUsers.map(userData => {
-                const user = new User(userData.username, 'temp', userData.fullName, userData.email);
-                // existing hashed password টি assign করুন
-                user.password = userData.password;
-                user.id = userData.id;
-                user.createdAt = userData.createdAt;
-                user.lastLogin = userData.lastLogin;
-                user.isActive = userData.isActive;
-                return user;
+                // এখানে চেক করা হচ্ছে: isActive না থাকলে তাকে true করে দাও
+                return {
+                    ...userData,
+                    isActive: userData.isActive !== undefined ? userData.isActive : true
+                };
             });
         } else {
-            // ডিফল্ট অ্যাডমিন ইউজার তৈরি করুন
             createDefaultAdmin();
         }
     } catch (error) {
@@ -290,25 +285,25 @@ function verifyPassword(user, password) {
 // লগিন হ্যান্ডলার - FIXED VERSION (রিয়েল-টাইম সিঙ্ক সহ)
 function handleLogin(event) {
     event.preventDefault();
-    const username = document.getElementById('username').value.trim();
-    const password = document.getElementById('password').value;
     
-    let user = users.find(u => u.username === username && u.isActive);
-    if (!user || !verifyPassword(user, password)) {
-        showNotification('❌ ইউজারনেম বা পাসওয়ার্ড ভুল', 'error');
+    // ১. লগইন করার আগে আগের সব ডাটা মুছে ফেলুন
+    resetAppState(); 
+
+    const usernameInput = document.getElementById('username').value.trim().toLowerCase();
+    const passwordInput = document.getElementById('password').value;
+    
+    let user = users.find(u => u.username.toLowerCase() === usernameInput);
+    
+    if (!user || user.password !== btoa(passwordInput + 'desco_salt')) {
+        showNotification('❌ ইউজারনেম বা পাসওয়ার্ড ভুল', 'error');
         return;
     }
-    
-    // Admin ID Fix
-    const ADMIN_FIXED_ID = 1779295853532; 
-    if (user.username === 'admin') {
-        user.id = ADMIN_FIXED_ID;
-    }
-    
+
+    // ২. বর্তমান ইউজার সেট করুন
     currentUser = { id: user.id, username: user.username, fullName: user.fullName, email: user.email };
     localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(currentUser));
 
-    // ✅ লগইন করার সাথে সাথে সিঙ্ক চালু
+    // ৩. রিয়েল-টাইম সিঙ্ক চালু (এটি এখন শুধু এই ইউজারের ডাটা আনবে)
     startRealtimeSync(currentUser.id);
     
     showMainApp();
@@ -320,42 +315,81 @@ function handleLogin(event) {
 async function handleRegister(event) {
     event.preventDefault();
     
-    const fullName = document.getElementById('fullName').value.trim();
-    const username = document.getElementById('regUsername').value.trim();
-    const email = document.getElementById('email').value.trim();
-    const password = document.getElementById('regPassword').value;
-    const confirmPassword = document.getElementById('confirmPassword').value;
+    try {
+        const fullName = document.getElementById('fullName').value.trim();
+        const username = document.getElementById('regUsername').value.trim().toLowerCase();
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('regPassword').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
 
-    if (password !== confirmPassword) {
-        showNotification('❌ পাসওয়ার্ড মিলছে না', 'error');
-        return;
+        if (password !== confirmPassword) {
+            showNotification('❌ পাসওয়ার্ড মিলছে না', 'error');
+            return;
+        }
+
+        // ইউজারনেম চেক
+        if (users.find(u => u.username === username)) {
+            showNotification('❌ এই ইউজারনেম ইতিমধ্যে ব্যবহৃত', 'error');
+            return;
+        }
+
+        showNotification('⏳ অ্যাকাউন্ট তৈরি হচ্ছে...', 'info');
+
+        const userIP = await getUserIP();
+        
+        const newUser = {
+            id: Date.now(),
+            fullName: fullName,
+            username: username,
+            email: email,
+            password: btoa(password + 'desco_salt'), // Simple hashing
+            isActive: true, // এটি নিশ্চিত করতে হবে
+            ip: userIP,
+            device: navigator.platform,
+            timestamp: new Date().toISOString()
+        };
+
+        // ১. লোকাল সেভ
+        users.push(newUser);
+        saveUsers();
+
+        // ২. Firebase-এ লগ এবং অ্যাকাউন্ট ব্যাকআপ পাঠানো
+        if (typeof database !== 'undefined') {
+            await database.ref('registration_logs/' + newUser.id).set(newUser);
+            // ঐচ্ছিক: ইউজার লিস্ট ক্লাউডে রাখা যাতে অন্য ব্রাউজার থেকেও লগিন করা যায়
+            await database.ref('users_backup/' + newUser.username).set({id: newUser.id}); 
+        }
+        
+        showNotification('✅ অ্যাকাউন্ট তৈরি সফল! এখন লগইন করুন', 'success');
+        showLoginForm();
+
+    } catch (error) {
+        console.error("Registration Error:", error);
+        showNotification('❌ রেজিস্ট্রেশন ব্যর্থ হয়েছে!', 'error');
     }
-
-    const userIP = await getUserIP();
-    
-    const newUser = {
-        id: Date.now(),
-        fullName,
-        username,
-        email,
-        password: btoa(password + 'desco_salt'), // Simple hashing
-        ip: userIP,
-        device: navigator.platform,
-        timestamp: new Date().toISOString()
-    };
-
-    // ১. লোকাল সেভ
-    users.push(newUser);
-    saveUsers();
-
-    // ২. Firebase-এ লগ পাঠানো (যাতে অন্য ব্রাউজার থেকে অ্যাডমিন দেখতে পারে)
-    if (typeof database !== 'undefined') {
-        database.ref('registration_logs/' + newUser.id).set(newUser);
-    }
-    
-    showNotification('✅ অ্যাকাউন্ট তৈরি সফল! লগইন করুন', 'success');
-    showLoginForm();
 }
+
+function resetAppState() {
+    console.log("🧹 অ্যাপ মেমোরি পরিষ্কার করা হচ্ছে...");
+    
+    // সব গ্লোবাল ভেরিয়েবল রিসেট
+    window.currentBalance = 0;
+    window.totalRecharge = 0;
+    window.totalExpended = 0;
+    window.transactions = [];
+    window.monthlyRecharges = [];
+    window.meters = [];
+    window.activeMeterId = null;
+    window.lastDemandChargeMonth = '';
+    
+    // UI পরিষ্কার করা
+    if (document.getElementById('currentBalance')) document.getElementById('currentBalance').textContent = '0.00';
+    if (document.getElementById('transactionList')) document.getElementById('transactionList').innerHTML = '';
+    
+    console.log("✅ মেমোরি এখন একদম খালি।");
+}
+
+
 
 /* // অ্যাডমিনের জন্য লগ দেখানোর ফাংশন (Firebase থেকে ডাটা আনা)
 function showRegistrationLog() {
@@ -741,8 +775,18 @@ function refreshUserDisplay() {
 // লগআউট ফাংশন
 function logout() {
     if (confirm('আপনি কি লগআউট করতে চান?')) {
+        // ১. ক্লাউড লিসেনার বন্ধ করুন (যাতে ডাটা আর না আসে)
+        if (currentUser && typeof database !== 'undefined') {
+            database.ref('meter_data/' + currentUser.id).off();
+        }
+
+        // ২. সব ডাটা রিসেট করুন
+        resetAppState();
+        
+        // ৩. লোকাল স্টোরেজ থেকে ইউজার মুছে ফেলুন
         currentUser = null;
         localStorage.removeItem(CURRENT_USER_KEY);
+        
         showLoginModal();
         showNotification('✅ সফলভাবে লগআউট করা হয়েছে', 'success');
     }
