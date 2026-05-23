@@ -1551,6 +1551,77 @@ function loadMeterInfo() {
     }
 }
 
+// মিটার তথ্য সেভ করার ফাংশন
+function saveMeterInfo() {
+    try {
+        // ১. ইনপুট ফিল্ড থেকে নতুন তথ্যগুলো নিন
+        const newName = document.getElementById('editMeterName').value.trim();
+        const newMeterNumber = document.getElementById('editMeterNumber').value.trim();
+        const newAccountNumber = document.getElementById('editAccountNumber').value.trim();
+        const newAddress = document.getElementById('editMeterAddress')?.value.trim() || "";
+        const newPhone = document.getElementById('editMeterPhone')?.value.trim() || "";
+
+        // ২. ভ্যালিডেশন (নাম এবং নম্বর ফাঁকা রাখা যাবে না)
+        if (!newName || !newMeterNumber || !newAccountNumber) {
+            showNotification('❌ নাম, মিটার নং এবং অ্যাকাউন্ট নং অবশ্যই পূরণ করুন!', 'error');
+            return;
+        }
+
+        // ৩. গ্লোবাল meterInfo অবজেক্ট আপডেট করুন
+        meterInfo = {
+            name: newName,
+            meterNumber: newMeterNumber,
+            accountNumber: newAccountNumber,
+            address: newAddress,
+            phone: newPhone
+        };
+
+        // ৪. meters অ্যারেতে বর্তমান মিটারের তথ্য আপডেট করুন
+        const meterIndex = meters.findIndex(m => m.id === activeMeterId);
+        if (meterIndex !== -1) {
+            meters[meterIndex] = { 
+                ...meters[meterIndex], 
+                name: newName, 
+                meterNumber: newMeterNumber, 
+                accountNumber: newAccountNumber,
+                address: newAddress,
+                phone: newPhone
+            };
+        }
+
+        // ৫. লোকাল স্টোরেজে সেভ করুন
+        localStorage.setItem('desco_meters', JSON.stringify(meters));
+        localStorage.setItem('desco_meterInfo', JSON.stringify(meterInfo));
+
+        // ৬. ক্লাউডে (Firebase) ডাটা সিঙ্ক করুন
+        if (typeof autoSyncToFirebase === 'function') {
+            autoSyncToFirebase();
+        }
+
+        // ৭. UI আপডেট করুন
+        updateMeterDisplay();
+        
+        // ৮. এডিট মোড বন্ধ করে ডিসপ্লে মোডে ফিরে যান
+        if (typeof toggleMeterEdit === 'function') {
+            toggleMeterEdit(); 
+        } else {
+            // যদি toggleMeterEdit ফাংশন না থাকে, সরাসরি স্টাইল পরিবর্তন করুন
+            document.getElementById('meterDisplay').style.display = 'block';
+            document.getElementById('meterEdit').style.display = 'none';
+        }
+
+        showNotification('✅ মিটার তথ্য সফলভাবে সেভ করা হয়েছে!', 'success');
+        console.log('✅ Meter saved:', meterInfo);
+
+    } catch (error) {
+        console.error('Save Meter Error:', error);
+        showNotification('❌ সেভ করতে সমস্যা হয়েছে!', 'error');
+    }
+}
+
+// গ্লোবাল এক্সেস নিশ্চিত করতে
+window.saveMeterInfo = saveMeterInfo;
+
 // মিটার ডিসপ্লে আপডেট - ঠিকানা ও ফোন দেখাবে
 function updateMeterDisplay() {
     try {
