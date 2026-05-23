@@ -1,93 +1,101 @@
-// pwa.js
+/**
+ * PWA.JS - IMPROVED VERSION
+ */
 let deferredPrompt = null;
 let installButton = null;
 
-window.addEventListener('beforeinstallprompt', (e) => {
-    console.log('✅ PWA install prompt available');
-    e.preventDefault();
-    deferredPrompt = e;
-    showInstallButton();
-});
+// ১. চেক করা যে অ্যাপটি অলরেডি ইন্সটলড কি না (Standalone Mode)
+const isAppInstalled = () => {
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+};
 
+// ২. ইন্সটল বাটন তৈরির ফাংশন
 function showInstallButton() {
-    // Remove existing button
+    // যদি অলরেডি ইন্সটলড থাকে তবে বাটন দেখাবে না
+    if (isAppInstalled()) {
+        console.log('✅ App is already installed and running in standalone mode.');
+        return;
+    }
+
     const existingBtn = document.querySelector('.install-btn');
     if (existingBtn) existingBtn.remove();
     
-    // Create install button
     installButton = document.createElement('button');
     installButton.className = 'install-btn';
     installButton.innerHTML = '📱 অ্যাপ ইন্সটল করুন';
     installButton.style.cssText = `
         position: fixed;
-        bottom: 20px;
+        bottom: 25px;
         right: 20px;
         background: linear-gradient(135deg, #27ae60, #2ecc71);
         color: white;
         border: none;
-        padding: 12px 20px;
-        border-radius: 25px;
+        padding: 14px 24px;
+        border-radius: 50px;
         cursor: pointer;
-        z-index: 1000;
-        font-size: 14px;
+        z-index: 9999;
+        font-size: 15px;
         font-weight: bold;
-        box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3);
+        box-shadow: 0 8px 20px rgba(39, 174, 96, 0.4);
         transition: all 0.3s ease;
+        display: block;
     `;
-    
-    installButton.onmouseover = () => {
-        installButton.style.transform = 'scale(1.05)';
-        installButton.style.boxShadow = '0 6px 20px rgba(39, 174, 96, 0.4)';
-    };
-    
-    installButton.onmouseout = () => {
-        installButton.style.transform = 'scale(1)';
-        installButton.style.boxShadow = '0 4px 15px rgba(39, 174, 96, 0.3)';
-    };
     
     installButton.onclick = installApp;
     document.body.appendChild(installButton);
 }
 
-function installApp() {
+// ৩. ইন্সটল প্রম্পট ইভেন্ট লিসেনার
+window.addEventListener('beforeinstallprompt', (e) => {
+    console.log('✅ beforeinstallprompt event captured');
+    // ব্রাউজারের ডিফল্ট পপ-আপ বন্ধ করা
+    e.preventDefault();
+    // ইভেন্টটি সেভ করে রাখা
+    deferredPrompt = e;
+    
+    // ২ সেকেন্ড পর বাটনটি দেখানো (নিশ্চিত হওয়ার জন্য যে পেজ লোড হয়েছে)
+    setTimeout(showInstallButton, 2000);
+});
+
+// ৪. ইন্সটল করার মেইন ফাংশন
+async function installApp() {
     if (!deferredPrompt) {
-        alert('অ্যাপ ইন্সটল সুবিধা এখন উপলব্ধ নেই। ব্রাউজার মেনু থেকে ইন্সটল করুন।');
+        // যদি প্রম্পট না থাকে তবে ইউজারকে ম্যানুয়ালি ইন্সটল করার উপায় জানানো
+        showNotification('📱 মোবাইলের ব্রাউজার মেনু (তিনটি ডট) থেকে "Install App" সিলেক্ট করুন।', 'info');
         return;
     }
     
+    // প্রম্পট দেখানো
     deferredPrompt.prompt();
     
-    deferredPrompt.userChoice.then((choiceResult) => {
-        if (choiceResult.outcome === 'accepted') {
-            console.log('✅ User accepted the install prompt');
-            showNotification('✅ অ্যাপ সফলভাবে ইন্সটল হয়েছে!', 'success');
-        } else {
-            console.log('❌ User dismissed the install prompt');
-        }
-        deferredPrompt = null;
-        if (installButton) {
-            installButton.style.display = 'none';
-        }
-    });
+    // ইউজার কি ডিসিশন নিল তা চেক করা
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`User response to the install prompt: ${outcome}`);
+    
+    if (outcome === 'accepted') {
+        console.log('✅ User accepted');
+        if (installButton) installButton.remove();
+    } else {
+        console.log('❌ User dismissed');
+    }
+    
+    // প্রম্পট রিসেট করা
+    deferredPrompt = null;
 }
 
-// Check if already installed
+// ৫. সাকসেসফুল ইন্সটলেশন চেক
 window.addEventListener('appinstalled', (evt) => {
-    console.log('🎉 PWA installed successfully');
-    if (installButton) {
-        installButton.style.display = 'none';
-    }
+    console.log('🎉 PWA was installed successfully');
+    if (installButton) installButton.remove();
+    showNotification('🎉 অ্যাপটি সফলভাবে হোম স্ক্রিনে যোগ হয়েছে!', 'success');
 });
 
-// Register service worker
+// ৬. সার্ভিস ওয়ার্কার (Service Worker) - অফলাইন সাপোর্ট
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
+        // সার্ভিস ওয়ার্কার ফাইলের পাথ ঠিক আছে কি না চেক করুন
         navigator.serviceWorker.register('./service-worker.js')
-            .then(registration => {
-                console.log('✅ Service Worker registered:', registration);
-            })
-            .catch(error => {
-                console.log('❌ Service Worker registration failed:', error);
-            });
+            .then(reg => console.log('🚀 Service Worker Active:', reg.scope))
+            .catch(err => console.error('❌ SW Registration failed:', err));
     });
 }

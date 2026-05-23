@@ -57,103 +57,134 @@
     </script>
 </head>
 <body>
-    <!-- লগিন মডাল -->
-    <div id="loginModal" class="modal" style="display: flex;">
-        <div class="modal-content" style="max-width: 400px;">
-            <div style="text-align: center; padding: 20px;">
-                <h2>🔐 লগইন করুন</h2>
-                <p>বিদ্যুৎ বিল ম্যানেজমেন্ট সিস্টেম</p>
-            </div>
-            
-            <form id="loginForm" onsubmit="handleLogin(event)">
-                <div style="margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">ইউজারনেম</label>
+    <!-- লগিন মডাল - আধুনিক ডিজাইন -->
+<div id="loginModal" class="modal" style="display: flex;">
+    <div class="modal-content" style="max-width: 420px; border-radius: 24px; overflow: hidden; padding: 0; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+        
+        <!-- গ্রেডিয়েন্ট হেডার -->
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px 20px; text-align: center; color: white;">
+            <div style="font-size: 48px; margin-bottom: 10px;">⚡</div>
+            <h2 style="margin: 0; font-size: 24px;">বিদ্যুৎ বিল ম্যানেজার</h2>
+            <p style="margin: 8px 0 0; opacity: 0.9; font-size: 13px;">আপনার বিল ক্যালকুলেশন সহজ করুন</p>
+        </div>
+        
+        <!-- ফর্ম বডি -->
+        <div style="padding: 30px 25px; background: white;">
+            <form id="loginForm" onsubmit="handleLogin(event); return false;">
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50; font-size: 14px;">👤 ইউজারনেম</label>
                     <input type="text" id="username" required 
-                           style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px;"
-                           placeholder="আপনার ইউজারনেম">
+                           style="width: 100%; padding: 14px 16px; border: 2px solid #e9ecef; border-radius: 12px; font-size: 15px; transition: all 0.3s ease; background: #f8f9fa;"
+                           placeholder="আপনার ইউজারনেম লিখুন"
+                           onfocus="this.style.borderColor='#667eea'; this.style.background='white'"
+                           onblur="this.style.borderColor='#e9ecef'; this.style.background='#f8f9fa'">
                 </div>
                 
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">পাসওয়ার্ড</label>
+                <div style="margin-bottom: 25px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50; font-size: 14px;">🔒 পাসওয়ার্ড</label>
                     <input type="password" id="password" required 
-                           style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px;"
-                           placeholder="আপনার পাসওয়ার্ড">
+                           style="width: 100%; padding: 14px 16px; border: 2px solid #e9ecef; border-radius: 12px; font-size: 15px; transition: all 0.3s ease; background: #f8f9fa;"
+                           placeholder="আপনার পাসওয়ার্ড লিখুন"
+                           onfocus="this.style.borderColor='#667eea'; this.style.background='white'"
+                           onblur="this.style.borderColor='#e9ecef'; this.style.background='#f8f9fa'">
                 </div>
                 
                 <button type="submit" 
-                        style="width: 100%; padding: 12px; background: #3498db; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin-bottom: 15px;">
-                    🔐 লগইন
+                        style="width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(102,126,234,0.4);"
+                        onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 25px rgba(102,126,234,0.5)'"
+                        onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(102,126,234,0.4)'">
+                    🔐 লগইন করুন
                 </button>
             </form>
             
-            <div style="text-align: center;">
+            <div style="text-align: center; margin-top: 25px; padding-top: 20px; border-top: 1px solid #e9ecef;">
                 <button onclick="showRegisterForm()" 
-                        style="background: none; border: none; color: #3498db; cursor: pointer; text-decoration: underline;">
-                    নতুন অ্যাকাউন্ট তৈরি করুন
+                        style="background: none; border: none; color: #667eea; cursor: pointer; font-weight: 500; font-size: 14px; transition: all 0.3s ease;"
+                        onmouseover="this.style.color='#764ba2'"
+                        onmouseout="this.style.color='#667eea'">
+                    📝 নতুন অ্যাকাউন্ট তৈরি করুন
                 </button>
             </div>
-        </div>
-    </div>
-
-    <!-- রেজিস্টার মডাল -->
-    <div id="registerModal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 400px;">
-            <div style="text-align: center; padding: 20px;">
-                <h2>📝 অ্যাকাউন্ট তৈরি করুন</h2>
-                <p>নতুন অ্যাকাউন্ট রেজিস্টার করুন</p>
-            </div>
             
+          </div>
+    </div>
+</div>
+
+    <!-- রেজিস্টার মডাল - আধুনিক ডিজাইন -->
+<div id="registerModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 450px; border-radius: 24px; overflow: hidden; padding: 0; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+        
+        <!-- গ্রেডিয়েন্ট হেডার -->
+        <div style="background: linear-gradient(135deg, #27ae60, #2ecc71); padding: 25px 20px; text-align: center; color: white;">
+            <div style="font-size: 42px; margin-bottom: 8px;">📝</div>
+            <h2 style="margin: 0; font-size: 22px;">নতুন অ্যাকাউন্ট</h2>
+            <p style="margin: 5px 0 0; opacity: 0.9; font-size: 12px;">আজই রেজিস্টার করুন</p>
+        </div>
+        
+        <!-- ফর্ম বডি -->
+        <div style="padding: 25px; background: white; max-height: 500px; overflow-y: auto;">
             <form id="registerForm" onsubmit="handleRegister(event)">
                 <div style="margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">পুরো নাম</label>
+                    <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #2c3e50; font-size: 13px;">👤 পুরো নাম</label>
                     <input type="text" id="fullName" required 
-                           style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px;"
-                           placeholder="আপনার পুরো নাম">
+                           style="width: 100%; padding: 12px 14px; border: 2px solid #e9ecef; border-radius: 10px; font-size: 14px; transition: all 0.3s ease; background: #f8f9fa;"
+                           placeholder="আপনার পুরো নাম লিখুন"
+                           onfocus="this.style.borderColor='#27ae60'; this.style.background='white'"
+                           onblur="this.style.borderColor='#e9ecef'; this.style.background='#f8f9fa'">
                 </div>
                 
                 <div style="margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">ইউজারনেম</label>
+                    <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #2c3e50; font-size: 13px;">📛 ইউজারনেম</label>
                     <input type="text" id="regUsername" required 
-                           style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px;"
-                           placeholder="ইউজারনেম নির্বাচন করুন">
+                           style="width: 100%; padding: 12px 14px; border: 2px solid #e9ecef; border-radius: 10px; font-size: 14px; transition: all 0.3s ease; background: #f8f9fa;"
+                           placeholder="ইউজারনেম নির্বাচন করুন"
+                           onfocus="this.style.borderColor='#27ae60'; this.style.background='white'"
+                           onblur="this.style.borderColor='#e9ecef'; this.style.background='#f8f9fa'">
                 </div>
                 
                 <div style="margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">ইমেইল</label>
+                    <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #2c3e50; font-size: 13px;">📧 ইমেইল</label>
                     <input type="email" id="email" required 
-                           style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px;"
-                           placeholder="আপনার ইমেইল">
+                           style="width: 100%; padding: 12px 14px; border: 2px solid #e9ecef; border-radius: 10px; font-size: 14px; transition: all 0.3s ease; background: #f8f9fa;"
+                           placeholder="আপনার ইমেইল ঠিকানা"
+                           onfocus="this.style.borderColor='#27ae60'; this.style.background='white'"
+                           onblur="this.style.borderColor='#e9ecef'; this.style.background='#f8f9fa'">
                 </div>
                 
                 <div style="margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">পাসওয়ার্ড</label>
+                    <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #2c3e50; font-size: 13px;">🔒 পাসওয়ার্ড</label>
                     <input type="password" id="regPassword" required 
-                           style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px;"
+                           style="width: 100%; padding: 12px 14px; border: 2px solid #e9ecef; border-radius: 10px; font-size: 14px; transition: all 0.3s ease; background: #f8f9fa;"
                            placeholder="পাসওয়ার্ড তৈরি করুন">
-                    <small style="color: #666;">অন্তত ৬ ক্যারেক্টার</small>
+                    <small style="color: #666; font-size: 11px;">অন্তত ৬ ক্যারেক্টার</small>
                 </div>
                 
                 <div style="margin-bottom: 20px;">
-                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">পাসওয়ার্ড নিশ্চিত করুন</label>
+                    <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #2c3e50; font-size: 13px;">🔐 পাসওয়ার্ড নিশ্চিত করুন</label>
                     <input type="password" id="confirmPassword" required 
-                           style="width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px;"
+                           style="width: 100%; padding: 12px 14px; border: 2px solid #e9ecef; border-radius: 10px; font-size: 14px; transition: all 0.3s ease; background: #f8f9fa;"
                            placeholder="পাসওয়ার্ড আবার লিখুন">
                 </div>
                 
                 <button type="submit" 
-                        style="width: 100%; padding: 12px; background: #27ae60; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin-bottom: 15px;">
-                    📝 রেজিস্টার
+                        style="width: 100%; padding: 14px; background: linear-gradient(135deg, #27ae60, #2ecc71); color: white; border: none; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;"
+                        onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 5px 15px rgba(46,204,113,0.4)'"
+                        onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                    📝 রেজিস্টার করুন
                 </button>
             </form>
             
-            <div style="text-align: center;">
+            <div style="text-align: center; margin-top: 20px;">
                 <button onclick="showLoginForm()" 
-                        style="background: none; border: none; color: #3498db; cursor: pointer; text-decoration: underline;">
-                    Already have an account? Login
+                        style="background: none; border: none; color: #27ae60; cursor: pointer; font-weight: 500; font-size: 13px; transition: all 0.3s ease;"
+                        onmouseover="this.style.color='#2ecc71'"
+                        onmouseout="this.style.color='#27ae60'">
+                    🔐 ইতিমধ্যে অ্যাকাউন্ট আছে? লগইন করুন
                 </button>
             </div>
         </div>
     </div>
+</div>
 	
 	<!-- Profile Edit Modal -->
 <div id="profileModal" class="modal" style="display: none;">
@@ -875,79 +906,15 @@
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="script.js"></script>
-    
-    <!-- <script> -->
-        <!-- // PWA Installation -->
-        <!-- let deferredPrompt; -->
-        <!-- let installButton; -->
+    <!-- লাইব্রেরি -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
-        <!-- window.addEventListener('beforeinstallprompt', (e) => { -->
-            <!-- console.log('beforeinstallprompt event fired'); -->
-            <!-- e.preventDefault(); -->
-            <!-- deferredPrompt = e; -->
-            
-            <!-- // Show install button after 2 seconds -->
-            <!-- setTimeout(showInstallButton, 2000); -->
-        <!-- }); -->
+<!-- ===== জাভাস্ক্রিপ্ট ফাইল লোডিং (js ফোল্ডার থেকে) ===== -->
 
-        <!-- function showInstallButton() { -->
-            <!-- // Remove existing button -->
-            <!-- const existingBtn = document.querySelector('.install-btn'); -->
-            <!-- if (existingBtn) existingBtn.remove(); -->
-            
-            <!-- // Create install button -->
-            <!-- installButton = document.createElement('button'); -->
-            <!-- installButton.className = 'install-btn'; -->
-            <!-- installButton.innerHTML = '📱 অ্যাপ ইন্সটল করুন'; -->
-            <!-- installButton.style.cssText = ` -->
-                <!-- position: fixed; -->
-                <!-- bottom: 20px; -->
-                <!-- right: 20px; -->
-                <!-- background: #27ae60; -->
-                <!-- color: white; -->
-                <!-- border: none; -->
-                <!-- padding: 12px 20px; -->
-                <!-- border-radius: 25px; -->
-                <!-- cursor: pointer; -->
-                <!-- z-index: 1000; -->
-                <!-- font-size: 14px; -->
-                <!-- box-shadow: 0 4px 12px rgba(0,0,0,0.3); -->
-            <!-- `; -->
-            
-            <!-- installButton.onclick = installApp; -->
-            <!-- document.body.appendChild(installButton); -->
-        <!-- } -->
+<!-- ১. কোর ফাইল -->
+<script src="script.js"></script>
 
-        <!-- function installApp() { -->
-            <!-- if (!deferredPrompt) { -->
-                <!-- alert('Install feature not available. Use browser menu.'); -->
-                <!-- return; -->
-            <!-- } -->
-            
-            <!-- // THIS IS THE IMPORTANT LINE - call prompt() -->
-            <!-- deferredPrompt.prompt(); -->
-            
-            <!-- deferredPrompt.userChoice.then((choiceResult) => { -->
-                <!-- if (choiceResult.outcome === 'accepted') { -->
-                    <!-- console.log('User installed the app'); -->
-                    <!-- if (installButton) installButton.style.display = 'none'; -->
-                <!-- } -->
-                <!-- deferredPrompt = null; -->
-            <!-- }); -->
-        <!-- } -->
-
-        <!-- // Service Worker -->
-        <!-- if ('serviceWorker' in navigator) { -->
-            <!-- navigator.serviceWorker.register('./service-worker.js') -->
-                <!-- .then(registration => { -->
-                    <!-- console.log('SW registered'); -->
-                <!-- }) -->
-                <!-- .catch(error => { -->
-                    <!-- console.log('SW failed:', error); -->
-                <!-- }); -->
-        <!-- } -->
-    <!-- </script> -->
 </body>
 </html>
