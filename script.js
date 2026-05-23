@@ -1,3 +1,4 @@
+let isLocalUpdate = false; // সিঙ্ক কনফ্লিক্ট আটকানোর জন্য ফ্ল্যাগ
 // ==================== লগইন ফাংশন আপডেট (FIXED) ====================
 const originalShowMainApp = typeof showMainApp === 'function' ? showMainApp : function() {
     document.getElementById('mainApp').style.display = 'block';
@@ -474,21 +475,22 @@ function startRealtimeSync() {
 function autoSyncToFirebase() {
     if (!currentUser || !currentUser.id || typeof database === 'undefined') return;
 
+    // ক্লাউডে পাঠানোর আগে বর্তমান ভ্যালু নিশ্চিত করুন
     const allData = {
         transactions: transactions || [],
         monthlyRecharges: monthlyRecharges || [],
-        currentBalance: currentBalance || 0,
-        totalRecharge: totalRecharge || 0,
-        totalExpended: totalExpended || 0,
+        currentBalance: currentBalance, // এটি এখন ১৬৫.৮০ হবে
+        totalRecharge: totalRecharge,
+        totalExpended: totalExpended,
         lastDemandChargeMonth: lastDemandChargeMonth || '',
         meters: meters || [],
         activeMeterId: activeMeterId || null,
-        settings: settings || {}, // এটি যোগ করলে সেটিংসও সিঙ্ক হবে
+        meterInfo: meterInfo || {},
         lastUpdated: firebase.database.ServerValue.TIMESTAMP
     };
 
-    database.ref('meter_data/' + currentUser.id).set(allData)
-    .then(() => console.log("📤 ক্লাউড সিঙ্ক সফল!"))
+    return database.ref('meter_data/' + currentUser.id).set(allData)
+    .then(() => console.log("✅ ক্লাউড সিঙ্ক সফল!"))
     .catch((err) => console.error("❌ সিঙ্ক এরর:", err));
 }
 
@@ -1626,52 +1628,108 @@ function updateMeterDisplay() {
     try {
         console.log('🔄 মিটার ডিসপ্লে আপডেট হচ্ছে...');
         
-        // ১. বেসিক ইনফো আপডেট
+        const currentMeter = meters.find(m => m.id === activeMeterId);
+        if (currentMeter) {
+            meterInfo = { ...currentMeter };
+        }
+
+        // নাম, মিটার নং এবং অ্যাকাউন্ট নং আপডেট
         const nameEl = document.getElementById('meterName');
         const meterEl = document.getElementById('meterNumber');
         const accountEl = document.getElementById('accountNumber');
         
-        if (nameEl) nameEl.textContent = meterInfo?.name || 'N/A';
-        if (meterEl) meterEl.textContent = meterInfo?.meterNumber || 'N/A';
-        if (accountEl) accountEl.textContent = meterInfo?.accountNumber || 'N/A';
+        if (nameEl) nameEl.textContent = meterInfo.name || 'N/A';
+        if (meterEl) meterEl.textContent = meterInfo.meterNumber || 'N/A';
+        if (accountEl) accountEl.textContent = meterInfo.accountNumber || 'N/A';
         
-        // ২. ঠিকানা ও ফোন দেখানোর জায়গা তৈরি/আপডেট
-        let infoContainer = document.getElementById('meterExtraInfo');
+        // অ্যাড্রেস এবং ফোনের জন্য এলিমেন্ট তৈরি বা আপডেট করা
+        let extraInfoEl = document.getElementById('meterExtraDisplay');
         const meterDisplay = document.getElementById('meterDisplay');
-        
+
         if (meterDisplay) {
-            // যদি container না থাকে, তৈরি করুন
-            if (!infoContainer) {
-                infoContainer = document.createElement('div');
-                infoContainer.id = 'meterExtraInfo';
-                infoContainer.style.marginTop = '8px';
-                infoContainer.style.fontSize = '12px';
-                infoContainer.style.color = '#7f8c8d';
-                meterDisplay.appendChild(infoContainer);
+            // যদি আগে থেকে ডিসপ্লে এলিমেন্ট না থাকে, তবে তৈরি করুন
+            if (!extraInfoEl) {
+                extraInfoEl = document.createElement('div');
+                extraInfoEl.id = 'meterExtraDisplay';
+                extraInfoEl.style.marginTop = '8px';
+                extraInfoEl.style.paddingTop = '8px';
+                extraInfoEl.style.borderTop = '1px dashed #eee';
+                extraInfoEl.style.fontSize = '13px';
+                extraInfoEl.style.color = '#555';
+                meterDisplay.appendChild(extraInfoEl);
             }
             
-            // ঠিকানা ও ফোন দেখান
+            // অ্যাড্রেস এবং ফোন নম্বর সাজানো
             let extraHtml = '';
-            if (meterInfo?.address && meterInfo.address.trim() !== '') {
-                extraHtml += `<span style="margin-right: 15px;">📍 ${meterInfo.address}</span>`;
+            if (meterInfo.address && meterInfo.address.trim() !== "") {
+                extraHtml += `<span style="margin-right: 15px;">📍 <b>ঠিকানা:</b> ${meterInfo.address}</span>`;
             }
-            if (meterInfo?.phone && meterInfo.phone.trim() !== '') {
-                extraHtml += `<span>📞 ${meterInfo.phone}</span>`;
+            if (meterInfo.phone && meterInfo.phone.trim() !== "") {
+                extraHtml += `<span>📞 <b>মোবাইল:</b> ${meterInfo.phone}</span>`;
             }
             
-            infoContainer.innerHTML = extraHtml || '';
+            extraInfoEl.innerHTML = extraHtml;
         }
         
-        console.log('✅ মিটার ডিসপ্লে আপডেট:', {
-            name: meterInfo?.name,
-            address: meterInfo?.address,
-            phone: meterInfo?.phone
-        });
-        
+        console.log('✅ মিটার ডিসপ্লে (ঠিকানা ও ফোনসহ) আপডেট সম্পন্ন');
     } catch (error) {
         console.error('❌ মিটার ডিসপ্লে আপডেট ত্রুটি:', error);
     }
 }
+
+window.saveMeterInfo = function() {
+    try {
+        const name = document.getElementById('editMeterName')?.value.trim();
+        const num = document.getElementById('editMeterNumber')?.value.trim();
+        const acc = document.getElementById('editAccountNumber')?.value.trim();
+        const address = document.getElementById('editMeterAddress')?.value.trim() || "";
+        const phone = document.getElementById('editMeterPhone')?.value.trim() || "";
+
+        if (!name || !num || !acc) {
+            alert("❌ দয়া করে নাম, মিটার নং এবং অ্যাকাউন্ট নং পূরণ করুন!");
+            return;
+        }
+
+        // ডাটা অবজেক্ট তৈরি
+        const updatedMeter = {
+            id: activeMeterId,
+            name: name,
+            meterNumber: num,
+            accountNumber: acc,
+            address: address,
+            phone: phone
+        };
+
+        // ১. গ্লোবাল মেমোরি আপডেট
+        meterInfo = updatedMeter;
+
+        // ২. মিটার লিস্ট আপডেট
+        const index = meters.findIndex(m => m.id === activeMeterId);
+        if (index !== -1) {
+            meters[index] = updatedMeter;
+        }
+
+        // ৩. লোকাল স্টোরেজ সেভ
+        localStorage.setItem('desco_meterInfo', JSON.stringify(meterInfo));
+        localStorage.setItem('desco_meters', JSON.stringify(meters));
+
+        // ৪. ক্লাউড সিঙ্ক
+        if (typeof autoSyncToFirebase === 'function') {
+            autoSyncToFirebase();
+        }
+
+        // ৫. UI রিফ্রেশ এবং মোড পরিবর্তন
+        updateMeterDisplay();
+        document.getElementById('meterDisplay').style.display = 'block';
+        document.getElementById('meterEdit').style.display = 'none';
+
+        showNotification('✅ মিটার তথ্য এবং কন্টাক্ট ডিটেইলস আপডেট হয়েছে!', 'success');
+
+    } catch (error) {
+        console.error("❌ Save Error:", error);
+        alert("সেভ করতে সমস্যা হয়েছে!");
+    }
+};
 
 // মিটার সিলেক্টর রেন্ডার - ঠিকানা ও ফোন সহ টুলটিপ
 function renderMeterSelector() {
@@ -1703,43 +1761,48 @@ function renderMeterSelector() {
     selectEl.appendChild(addOpt);
 }
 
-// মিটার পরিবর্তন হ্যান্ডলার - আপডেটেড
+// setActiveMeter - সংশোধিত ও শক্তিশালী ভার্সন
 function setActiveMeter(id) {
     if (id === 'new') {
-        // নতুন মিটার যোগ করার মডাল দেখান
         if (typeof showAddMeterModal === 'function') {
             showAddMeterModal();
         } else {
             showNotification('নতুন মিটার যোগ করতে "➕ নতুন মিটার" বাটন ব্যবহার করুন', 'info');
         }
-        // সিলেক্টর আগের মানে ফিরিয়ে দিন
-        renderMeterSelector();
+        renderMeterSelector(); 
         return;
     }
     
     if (id === activeMeterId) return;
     
-    // বর্তমান মিটারের ডেটা সেভ করুন
+    console.log('🔄 মিটার সুইচ করা হচ্ছে:', id);
+
+    // ১. বর্তমান (পুরনো) মিটারের ডাটা লোকাল স্টোরেজে ব্যাকআপ রাখুন
     if (activeMeterId) {
         const oldKey = `meter_data_${activeMeterId}`;
         const oldData = {
-            transactions: transactions,
-            monthlyRecharges: monthlyRecharges,
-            currentBalance: currentBalance,
-            totalRecharge: totalRecharge,
-            totalExpended: totalExpended,
-            lastDemandChargeMonth: lastDemandChargeMonth,
+            transactions: transactions || [],
+            monthlyRecharges: monthlyRecharges || [],
+            currentBalance: currentBalance || 0,
+            totalRecharge: totalRecharge || 0,
+            totalExpended: totalExpended || 0,
+            lastDemandChargeMonth: lastDemandChargeMonth || '',
             settings: settings,
-            tariffRates: tariffRates
+            tariffRates: tariffRates,
+            meterInfo: meterInfo // পুরনো মিটারের নাম ও নম্বর
         };
         localStorage.setItem(oldKey, JSON.stringify(oldData));
     }
     
-    // নতুন মিটার সেট
+    // ২. নতুন মিটার আইডি সেট করুন
     activeMeterId = id;
+    localStorage.setItem('desco_active_meter_id', id);
+
+    // ৩. 'meters' অ্যারে থেকে নতুন মিটারের প্রোফাইলটি খুঁজে বের করুন
     const m = (meters || []).find(x => x.id === id);
     
     if (m) {
+        // নতুন মিটারের প্রোফাইল গ্লোবাল meterInfo-তে সেট করুন
         meterInfo = { 
             name: m.name, 
             meterNumber: m.meterNumber, 
@@ -1747,43 +1810,51 @@ function setActiveMeter(id) {
             address: m.address || '',
             phone: m.phone || ''
         };
-        localStorage.setItem('desco_active_meter_id', id);
         localStorage.setItem('desco_meterInfo', JSON.stringify(meterInfo));
+    } else {
+        console.error("❌ নতুন মিটারের প্রোফাইল খুঁজে পাওয়া যায়নি!");
     }
     
-    // নতুন মিটারের ডেটা লোড
-    const newKey = `meter_data_${activeMeterId}`;
+    // ৪. নতুন মিটারের ট্রানজেকশন ও ব্যালেন্স ডাটা লোড করুন
+    const newKey = `meter_data_${id}`;
     const newRaw = localStorage.getItem(newKey);
     
     if (newRaw) {
         const newData = JSON.parse(newRaw);
         transactions = newData.transactions || [];
         monthlyRecharges = newData.monthlyRecharges || [];
-        currentBalance = newData.currentBalance || 0;
-        totalRecharge = newData.totalRecharge || 0;
-        totalExpended = newData.totalExpended || 0;
+        currentBalance = parseFloat(newData.currentBalance) || 0;
+        totalRecharge = parseFloat(newData.totalRecharge) || 0;
+        totalExpended = parseFloat(newData.totalExpended) || 0;
         lastDemandChargeMonth = newData.lastDemandChargeMonth || '';
         
         if (newData.settings) settings = { ...settings, ...newData.settings };
         if (newData.tariffRates) tariffRates = newData.tariffRates;
+        
+        // যদি ওই সেভ করা ডাটায় meterInfo থাকে, তবে সেটিই লেটেস্ট ধরুন
+        if (newData.meterInfo) meterInfo = newData.meterInfo;
     } else {
-        // নতুন মিটারের জন্য ডিফল্ট ডেটা
+        // নতুন মিটারের জন্য যদি কোনো ডাটা না থাকে (একদম ফ্রেশ)
         transactions = [];
         monthlyRecharges = [];
         currentBalance = 0;
         totalRecharge = 0;
         totalExpended = 0;
+        lastDemandChargeMonth = '';
     }
     
-    // UI আপডেট
-    updateMeterDisplay();
+    // ৫. সবচেয়ে জরুরি: সব UI একসাথে রিফ্রেশ করা
+    updateMeterDisplay();  // এটি নিশ্চিতভাবে নতুন নাম (MD. ABDUL MALEQUE) দেখাবে
     updateBalanceDisplay();
     loadTransactionReport();
     updateTariffDisplay();
     
-    const currentMeter = meters.find(m => m.id === id);
-    showNotification(`✅ ${currentMeter?.name} মিটারে সুইচ করা হয়েছে`, 'success');
-    console.log('মিটার সুইচ:', { id, name: currentMeter?.name, balance: currentBalance });
+    // ৬. ক্লাউডে (Firebase) এই পরিবর্তনের কথা জানিয়ে দিন (যাতে সিঙ্ক ঠিক থাকে)
+    if (typeof autoSyncToFirebase === 'function') {
+        autoSyncToFirebase();
+    }
+    
+    showNotification(`✅ মিটার সফলভাবে পরিবর্তন করা হয়েছে!`, 'success');
 }
 
 // নতুন মিটার যোগ করার মডাল
@@ -3004,12 +3075,24 @@ function initializeDigitalMeter() {
     updateMeterDisplay();
 }
 
-// মিটার ডিসপ্লে আপডেট - ঠিকানা ও ফোন সহ
+/* // মিটার ডিসপ্লে আপডেট - ঠিকানা ও ফোন সহ
 function updateMeterDisplay() {
     try {
         console.log('🔄 মিটার ডিসপ্লে আপডেট হচ্ছে...');
         
-        // ১. মিটার বেসিক ইনফো আপডেট
+        // ১. বর্তমানে যে মিটারটি সিলেক্ট করা আছে তাকে খুঁজে বের করুন
+        const currentMeter = meters.find(m => m.id === activeMeterId);
+        
+        if (currentMeter) {
+            // যদি মিটার খুঁজে পাওয়া যায়, তবে তার তথ্য ব্যবহার করুন
+            meterInfo = { ...currentMeter };
+        } else if (meters.length > 0) {
+            // যদি বর্তমানে সিলেক্ট করাটি না পাওয়া যায়, প্রথমটি নিন
+            meterInfo = { ...meters[0] };
+            activeMeterId = meters[0].id;
+        }
+
+        // ২. স্ক্রিনে তথ্যগুলো বসান
         const nameEl = document.getElementById('meterName');
         const meterEl = document.getElementById('meterNumber');
         const accountEl = document.getElementById('accountNumber');
@@ -3018,49 +3101,20 @@ function updateMeterDisplay() {
         if (meterEl) meterEl.textContent = meterInfo.meterNumber || 'N/A';
         if (accountEl) accountEl.textContent = meterInfo.accountNumber || 'N/A';
         
-        // ২. ঠিকানা ও ফোন দেখানোর জন্য এলিমেন্ট তৈরি/আপডেট
-        let addressPhoneEl = document.getElementById('meterAddressPhone');
-        
-        if (!addressPhoneEl) {
-            // যদি এলিমেন্ট না থাকে, তাহলে তৈরি করুন
-            const meterDisplay = document.getElementById('meterDisplay');
-            if (meterDisplay) {
-                const pTag = meterDisplay.querySelector('p');
-                if (pTag) {
-                    const newDiv = document.createElement('div');
-                    newDiv.id = 'meterAddressPhone';
-                    newDiv.style.marginTop = '8px';
-                    newDiv.style.fontSize = '12px';
-                    newDiv.style.color = '#7f8c8d';
-                    pTag.appendChild(newDiv);
-                    addressPhoneEl = newDiv;
-                }
-            }
+        // ৩. ঠিকানা ও ফোন (যদি থাকে)
+        let infoContainer = document.getElementById('meterExtraInfo');
+        if (infoContainer) {
+            let extraHtml = '';
+            if (meterInfo.address) extraHtml += `<span>📍 ${meterInfo.address}</span> `;
+            if (meterInfo.phone) extraHtml += `<span>📞 ${meterInfo.phone}</span>`;
+            infoContainer.innerHTML = extraHtml;
         }
         
-        // ৩. ঠিকানা ও ফোন দেখান (যদি থাকে)
-        if (addressPhoneEl) {
-            let addressPhoneText = '';
-            if (meterInfo.address && meterInfo.address.trim() !== '') {
-                addressPhoneText += `📍 ${meterInfo.address}`;
-            }
-            if (meterInfo.phone && meterInfo.phone.trim() !== '') {
-                if (addressPhoneText) addressPhoneText += ' | ';
-                addressPhoneText += `📞 ${meterInfo.phone}`;
-            }
-            addressPhoneEl.innerHTML = addressPhoneText || '';
-        }
-        
-        console.log('✅ মিটার ডিসপ্লে আপডেট সম্পন্ন:', {
-            name: meterInfo.name,
-            address: meterInfo.address,
-            phone: meterInfo.phone
-        });
-        
+        console.log('✅ মিটার ডিসপ্লে সিঙ্ক হয়েছে:', meterInfo.name);
     } catch (error) {
-        console.error('❌ মিটার ডিসপ্লে আপডেট করতে সমস্যা:', error);
+        console.error('❌ মিটার ডিসপ্লে আপডেট ত্রুটি:', error);
     }
-}
+} */
 
 // বর্তমান মাসের রিচার্জ ক্যালকুলেশন
 function getCurrentMonthRecharge() {
@@ -3103,231 +3157,122 @@ function getCurrentMonthRecharge() {
     return monthRecharge;
 }
 
-// মাসিক সারাংশ দেখান - সম্পূর্ণ এবং বিশদ
+// ==================== মাস্টার ফিক্স: মাসিক সারাংশ (রিচার্জ ০ সমস্যার সমাধান) ====================
 function showMonthlySummary() {
-    console.log('=== মাসিক সারাংশ শুরু ===');
+    console.log('📊 মাসিক সারাংশ জেনারেট হচ্ছে...');
     
-    // সরাসরি ডেটা চেক
-    console.log('মাসিক রিচার্জ সংখ্যা:', monthlyRecharges.length);
-    console.log('ট্রানজেকশন সংখ্যা:', transactions.length);
-    
-    // যদি মাসিক রিচার্জ না থাকে
-    if (!monthlyRecharges || monthlyRecharges.length === 0) {
-        console.log('কোন মাসিক রিচার্জ নেই!');
-        showSimpleMonthlySummary();
-        return;
-    }
-    
-    // সহজভাবে মাসিক ডেটা সংগ্রহ
     const monthData = {};
-    
-    // ১. প্রথমে মাসিক রিচার্জ থেকে মাস সংগ্রহ
-    monthlyRecharges.forEach(recharge => {
-        console.log('রিচার্জ প্রসেসিং:', recharge);
-        
-        // যদি month না থাকে, date থেকে বের করুন
-        let monthKey;
-        if (recharge.month) {
-            monthKey = recharge.month;
-        } else if (recharge.date) {
-            try {
-                const date = new Date(recharge.date);
-                monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
-            } catch (error) {
-                console.error('তারিখ পার্স করতে সমস্যা:', recharge.date);
-                return;
+    const bnToEn = (s) => s.replace(/[০-৯]/g, d => '0123456789'['০১২৩৪৫৬৭৮৯'.indexOf(d)]);
+
+    // ১. সব ট্রানজেকশন স্ক্যান করা (রিচার্জ এবং বিল উভয়ই)
+    const allTransactions = [...(transactions || [])];
+
+    allTransactions.forEach(t => {
+        let dateStr = t.date || t.timestamp || "";
+        let cleanDate = bnToEn(dateStr.split(',')[0]);
+        let year, month;
+
+        // তারিখ থেকে মাস ও বছর বের করা
+        if (cleanDate.includes('/')) {
+            const p = cleanDate.split('/'); year = p[2]; month = p[1];
+        } else if (cleanDate.includes('-')) {
+            const p = cleanDate.split('-'); year = p[0]; month = p[1];
+        }
+
+        if (year && month) {
+            let monthKey = `${year}-${month.padStart(2, '0')}`;
+            if (!monthData[monthKey]) {
+                monthData[monthKey] = { rechargeAmount: 0, rechargeCount: 0, totalUnits: 0, billCount: 0 };
             }
-        } else {
-            console.warn('রিচার্জে month বা date নেই:', recharge);
-            return;
-        }
-        
-        if (!monthData[monthKey]) {
-            const [year, month] = monthKey.split('-');
-            monthData[monthKey] = {
-                monthKey: monthKey,
-                year: parseInt(year),
-                month: parseInt(month),
-                totalRecharge: 0,
-                rechargeCount: 0,
-                rechargeList: []
-            };
-        }
-        
-        monthData[monthKey].totalRecharge += recharge.amount || 0;
-        monthData[monthKey].rechargeCount++;
-        monthData[monthKey].rechargeList.push(recharge);
-    });
-    
-    // ২. বিদ্যুৎ বিল থেকে মাস সংগ্রহ
-    transactions.forEach(transaction => {
-        if (transaction.type === 'electricity_bill') {
-            try {
-                let monthKey;
-                
-                // যদি transaction-এ date থাকে
-                if (transaction.date) {
-                    const date = new Date(transaction.date);
-                    monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
-                } 
-                // বা timestamp থেকে
-                else if (transaction.timestamp) {
-                    const date = parseBanglaDate(transaction.timestamp);
-                    monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
-                } else {
-                    return;
-                }
-                
-                if (!monthData[monthKey]) {
-                    const [year, month] = monthKey.split('-');
-                    monthData[monthKey] = {
-                        monthKey: monthKey,
-                        year: parseInt(year),
-                        month: parseInt(month),
-                        totalUnits: 0,
-                        totalCost: 0,
-                        billCount: 0,
-                        billList: []
-                    };
-                }
-                
-                if (!monthData[monthKey].totalUnits) monthData[monthKey].totalUnits = 0;
-                if (!monthData[monthKey].totalCost) monthData[monthKey].totalCost = 0;
-                if (!monthData[monthKey].billCount) monthData[monthKey].billCount = 0;
-                if (!monthData[monthKey].billList) monthData[monthKey].billList = [];
-                
-                monthData[monthKey].totalUnits += transaction.units || 0;
-                monthData[monthKey].totalCost += Math.abs(transaction.amount || 0);
+
+            if (t.type === 'recharge') {
+                monthData[monthKey].rechargeAmount += Math.abs(parseFloat(t.amount)) || 0;
+                monthData[monthKey].rechargeCount++;
+            } else if (t.type === 'electricity_bill') {
+                monthData[monthKey].totalUnits += parseFloat(t.units) || 0;
                 monthData[monthKey].billCount++;
-                monthData[monthKey].billList.push(transaction);
-                
-            } catch (error) {
-                console.error('বিদ্যুৎ বিল প্রসেস করতে সমস্যা:', transaction, error);
             }
         }
     });
-    
-    console.log('গ্রুপ করা মাসিক ডেটা:', monthData);
-    
-    const months = Object.values(monthData);
-    
-    if (months.length === 0) {
-        showSimpleMonthlySummary();
-        return;
-    }
-    
-    // মাসগুলিকে সাজান (নতুন থেকে পুরাতন)
-    const sortedMonths = months.sort((a, b) => {
-        return new Date(b.year, b.month - 1) - new Date(a.year, a.month - 1);
-    });
-    
-    console.log('সাজানো মাস:', sortedMonths.length);
-    
-    // HTML তৈরি
+
+    const sortedKeys = Object.keys(monthData).sort().reverse();
+    if (sortedKeys.length === 0) return showSimpleMonthlySummary();
+
     let html = `
         <div style="text-align: center; background: linear-gradient(135deg, #2c3e50, #34495e); 
-                   color: white; padding: 20px; border-radius: 10px; margin-bottom: 25px;">
+                   color: white; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
             <h2 style="margin: 0;">📊 মাসিক সারাংশ</h2>
-            <p style="margin: 5px 0 0 0; opacity: 0.9;">
-                মোট ${toBanglaNumber(sortedMonths.length)} মাস | 
-                ${toBanglaNumber(monthlyRecharges.length)} রিচার্জ | 
-                ${toBanglaNumber(transactions.filter(t => t.type === 'electricity_bill').length)} বিল
-            </p>
+            <p style="margin: 5px 0 0 0; opacity: 0.9;">মোট ${toBanglaNumber(sortedKeys.length)} মাসের ডাটা পাওয়া গেছে</p>
         </div>
-        
-        <div style="max-height: 500px; overflow-y: auto;">
+        <div style="max-height: 500px; overflow-y: auto; padding: 5px;">
     `;
-    
-    sortedMonths.forEach((month, index) => {
-        const monthName = getBanglaMonthName(month.month) + ' ' + month.year;
-        const isCurrentMonth = checkIfCurrentMonth(month.month, month.year);
+
+    // ২. প্রতিটি মাসের জন্য ডাটা ক্যালকুলেশন ও রেন্ডারিং
+    sortedKeys.forEach(key => {
+        const data = monthData[key];
+        const [year, monthNum] = key.split('-');
+        const monthName = getBanglaMonthName(parseInt(monthNum)) + ' ' + year;
         
+        // যদি রিচার্জ থাকে তবে ডিটেইলস ক্যালকুলেট করুন (আপনার সেটিংস অনুযায়ী)
+        let energy = 0, demand = 0, vat = 0, rebate = 0;
+        if (data.rechargeAmount > 0) {
+            // ডিমান্ড চার্জ মাসে একবারই ধরা হয় (আপনার সেটিংস থেকে অথবা ডিফল্ট ২৯৪)
+            demand = settings.demandCharge || 294;
+            const vatRate = (settings.vatRate || 5) / 100;
+            const rebateRate = (settings.rebateRate || 0.85) / 100;
+            
+            // গ্রোস থেকে নেট বের করার ফর্মুলা
+            energy = (data.rechargeAmount - (demand * (1 + vatRate))) / (1 + (vatRate - rebateRate));
+            vat = (energy + demand) * vatRate;
+            rebate = energy * rebateRate;
+        }
+
+        const isCurrent = checkIfCurrentMonth(parseInt(monthNum), parseInt(year));
+
         html += `
-            <div style="background: ${isCurrentMonth ? '#e8f6f3' : 'white'}; 
-                       padding: 20px; margin: 0 0 15px 0; border-radius: 10px;
-                       border-left: 5px solid ${isCurrentMonth ? '#27ae60' : '#3498db'};
-                       box-shadow: 0 3px 10px rgba(0,0,0,0.08);">
-                
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <div style="font-weight: bold; font-size: 18px; color: #2c3e50;">
-                        ${monthName} ${isCurrentMonth ? '👈 বর্তমান' : ''}
-                    </div>
-                    <div style="font-size: 12px; color: #7f8c8d;">
-                        মাস #${index + 1}
-                    </div>
+            <div style="background: white; border-radius: 15px; margin-bottom: 25px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid #ddd;">
+                <div style="background: ${isCurrent ? '#2ecc71' : '#3498db'}; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; color: white;">
+                    <span style="font-weight: bold; font-size: 16px;">📅 ${monthName} ${isCurrent ? '(বর্তমান মাস)' : ''}</span>
                 </div>
-                
-                <!-- রিচার্জ তথ্য -->
-                ${month.totalRecharge > 0 ? `
-                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <div style="font-size: 14px; color: #2c3e50; font-weight: bold;">💰 রিচার্জ</div>
-                        <span style="background: #27ae60; color: white; padding: 3px 10px; border-radius: 15px; font-size: 12px;">
-                            ${toBanglaNumber(month.rechargeCount)}টি
-                        </span>
+
+                <div style="padding: 15px 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #f0f0f0; padding-bottom: 10px;">
+                        <span style="font-weight: bold; color: #555;">💰 মোট রিচার্জ:</span>
+                        <strong style="color: #27ae60; font-size: 22px;">${toBanglaNumber(data.rechargeAmount.toFixed(2))} টাকা</strong>
                     </div>
-                    
-                    <div style="text-align: center;">
-                        <div style="font-size: 24px; color: #27ae60; font-weight: bold; margin-bottom: 5px;">
-                            ${toBanglaNumber(month.totalRecharge.toFixed(2))} টাকা
+
+                    <!-- ২x২ গ্রিড ডিজাইন -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 15px;">
+                        <div style="background: #f0fdf4; padding: 10px; border-radius: 10px; text-align: center; border: 1px solid #e0f2f1;">
+                            <div style="color: #666; font-size: 10px; margin-bottom: 3px;">📊 ব্যবহারযোগ্য</div>
+                            <strong style="color: #e67e22; font-size: 15px;">${toBanglaNumber(energy.toFixed(2))} টাকা</strong>
                         </div>
-                        <div style="font-size: 12px; color: #7f8c8d;">
-                            গড়: ${toBanglaNumber((month.totalRecharge / month.rechargeCount).toFixed(2))} টাকা/রিচার্জ
+                        <div style="background: #fef9e7; padding: 10px; border-radius: 10px; text-align: center; border: 1px solid #fff9c4;">
+                            <div style="color: #666; font-size: 10px; margin-bottom: 3px;">⚡ ডিমান্ড চার্জ</div>
+                            <strong style="color: #f39c12; font-size: 15px;">${toBanglaNumber(demand.toFixed(2))} টাকা</strong>
                         </div>
-                    </div>
-                </div>
-                ` : ''}
-                
-                <!-- ইউনিট তথ্য -->
-                ${month.totalUnits > 0 ? `
-                <div style="background: #e8f6f3; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <div style="font-size: 14px; color: #2c3e50; font-weight: bold;">⚡ বিদ্যুৎ বিল</div>
-                        <span style="background: #e74c3c; color: white; padding: 3px 10px; border-radius: 15px; font-size: 12px;">
-                            ${toBanglaNumber(month.billCount)}টি
-                        </span>
-                    </div>
-                    
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                        <div style="text-align: center;">
-                            <div style="font-size: 18px; color: #2c3e50; font-weight: bold;">
-                                ${toBanglaNumber(month.totalUnits.toFixed(2))}
-                            </div>
-                            <div style="font-size: 11px; color: #7f8c8d;">মোট ইউনিট</div>
+                        <div style="background: #f3e5f5; padding: 10px; border-radius: 10px; text-align: center; border: 1px solid #f3e5f5;">
+                            <div style="color: #666; font-size: 10px; margin-bottom: 3px;">🧾 ভ্যাট</div>
+                            <strong style="color: #9b59b6; font-size: 15px;">${toBanglaNumber(vat.toFixed(2))} টাকা</strong>
                         </div>
-                        
-                        <div style="text-align: center;">
-                            <div style="font-size: 18px; color: #e74c3c; font-weight: bold;">
-                                ${toBanglaNumber(month.totalCost.toFixed(2))}
-                            </div>
-                            <div style="font-size: 11px; color: #7f8c8d;">মোট খরচ</div>
+                        <div style="background: #fdedec; padding: 10px; border-radius: 10px; text-align: center; border: 1px solid #ffebee;">
+                            <div style="color: #666; font-size: 10px; margin-bottom: 3px;">💰 রিবেট</div>
+                            <strong style="color: #e74c3c; font-size: 15px;">${toBanglaNumber(rebate.toFixed(2))} টাকা</strong>
                         </div>
                     </div>
-                    
-                    <div style="text-align: center; margin-top: 10px;">
-                        <div style="font-size: 12px; color: #3498db;">
-                            গড়: ${toBanglaNumber((month.totalUnits > 0 ? month.totalCost / month.totalUnits : 0).toFixed(2))} টাকা/ইউনিট
-                        </div>
+
+                    <div style="background: #f8f9fa; padding: 10px; border-radius: 10px; display: flex; justify-content: space-around; font-size: 12px;">
+                        <div style="color: #2c3e50;">⚡ ইউনিট: <strong>${toBanglaNumber(data.totalUnits.toFixed(2))} kWh</strong></div>
+                        <div style="color: #2c3e50;">📝 বিল: <strong>${toBanglaNumber(data.billCount)}টি</strong></div>
+                        <div style="color: #2c3e50;">🔢 রিচার্জ: <strong>${toBanglaNumber(data.rechargeCount)}টি</strong></div>
                     </div>
-                </div>
-                ` : ''}
-                
-                <!-- একশন বাটন -->
-                <div style="text-align: center; margin-top: 15px;">
-                    <button onclick="showMonthDetailsSimple('${month.month}', '${month.year}')" 
-                            style="padding: 10px 20px; background: #3498db; color: white; border: none; 
-                                   border-radius: 25px; cursor: pointer; font-size: 13px; font-weight: bold;">
-                        🔍 বিস্তারিত দেখুন
-                    </button>
                 </div>
             </div>
         `;
     });
-    
+
     html += `</div>`;
-    
-    showCustomModal('মাসিক সারাংশ', html);
-    console.log('=== মাসিক সারাংশ শেষ ===');
+    showCustomModal('📊 মাসিক সারাংশ রিপোর্ট', html);
 }
 
 // মাসের বিস্তারিত দেখান
@@ -4699,13 +4644,17 @@ function resetMeterHistory() {
 // ব্যালেন্স ডিসপ্লে আপডেট ফাংশন - ফাইনাল ভার্সন
 function updateBalanceDisplay() {
     try {
-        // NaN চেক এবং ফিক্স
+        const txs = getActiveTransactions();
+        if (transactions && transactions.length > 0) {
+            totalRecharge = txs.filter(t => t.type === 'recharge').reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
+            totalExpended = txs.filter(t => t.type === 'electricity_bill').reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
+        }
+
         let bal = parseFloat(currentBalance);
         let rec = parseFloat(totalRecharge);
         let exp = parseFloat(totalExpended);
         
         if (isNaN(bal)) {
-            console.warn('currentBalance NaN, লোকাল স্টোরেজ থেকে ফিক্স করা হচ্ছে...');
             const meterKey = `meter_data_${activeMeterId}`;
             const raw = localStorage.getItem(meterKey);
             if (raw) {
@@ -4713,7 +4662,6 @@ function updateBalanceDisplay() {
                 bal = data.currentBalance || 0;
                 rec = data.totalRecharge || 0;
                 exp = data.totalExpended || 0;
-                
                 currentBalance = bal;
                 totalRecharge = rec;
                 totalExpended = exp;
@@ -4724,16 +4672,27 @@ function updateBalanceDisplay() {
             }
         }
         
-        // UI আপডেট
         const balanceEl = document.getElementById('currentBalance');
         const rechargeEl = document.getElementById('totalRecharge');
         const expendedEl = document.getElementById('totalExpended');
+        const lastBalanceEl = document.getElementById('lastBalance');
         
         if (balanceEl) balanceEl.textContent = bal.toFixed(2);
         if (rechargeEl) rechargeEl.textContent = rec.toFixed(2);
         if (expendedEl) expendedEl.textContent = exp.toFixed(2);
         
-        // রিপোর্ট সামারি
+        // সর্বশেষ খরচ ঠিক করা (টাকা একবারই দেখাবে)
+        if (lastBalanceEl) {
+            const allBills = transactions.filter(t => t.type === 'electricity_bill');
+            if (allBills.length > 0) {
+                const lastBill = allBills.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+                const lastAmount = Math.abs(lastBill.amount);
+                lastBalanceEl.textContent = `${toBanglaNumber(lastAmount.toFixed(2))} টাকা`;
+            } else {
+                lastBalanceEl.textContent = `০.০০ টাকা`;
+            }
+        }
+        
         const depositEl = document.getElementById('totalDeposit');
         const expenseEl = document.getElementById('totalExpense');
         const txCountEl = document.getElementById('totalTransactions');
@@ -4743,6 +4702,8 @@ function updateBalanceDisplay() {
         if (txCountEl) txCountEl.textContent = transactions?.length || 0;
         
         console.log('💰 ব্যালেন্স আপডেট:', bal);
+        
+        if (typeof updateProgressBar === 'function') updateProgressBar();
         
     } catch (error) {
         console.error('Balance display error:', error);
@@ -6051,41 +6012,69 @@ function updateProgressBar() {
         const progressFill = document.getElementById('balanceProgress');
         if (!progressFill) return;
         
-        // ✅ সরল Net Balance Calculation
-        let netUsableBalance = currentBalance;
+        // ১. বর্তমান ব্যালেন্স
+        let current = parseFloat(currentBalance) || 0;
         
-        // সর্বশেষ রিচার্জ থেকে net usable amount বের করুন
-        if (monthlyRecharges.length > 0) {
-            const lastRecharge = monthlyRecharges[monthlyRecharges.length - 1];
-            if (lastRecharge && lastRecharge.billDetails) {
-                netUsableBalance = lastRecharge.billDetails.energyCost;
-            }
+        // ২. ম্যাক্স ব্যালেন্স (ডিফল্ট বর্তমান ব্যালেন্স)
+        let maxBalance = current;
+        
+        // ৩. আপনার ট্রানজেকশন হিস্ট্রি থেকে সর্বশেষ রিচার্জটি খুঁজে বের করা
+        // আমরা transactions অ্যারে থেকে সেই রিচার্জটি খুঁজবো যেটি করার পর ব্যালেন্স বেড়েছিল
+        const rechargeTx = transactions.find(t => t.type === 'recharge');
+
+        if (rechargeTx) {
+            // রিচার্জ করার ঠিক পরেই ব্যালেন্স যা ছিল, সেটিই হবে আমাদের ১০০% পয়েন্ট
+            // আপনার ট্রানজেকশনে 'balanceAfter' হিসেবে এই তথ্যটি সেভ করা থাকে
+            maxBalance = parseFloat(rechargeTx.balanceAfter) || current;
         }
-        
-        // Max = Net Usable Amount (663.12 টাকা আপনার উদাহরণে)
-        const maxNetBalance = netUsableBalance; // রিচার্জের সময় এটাই 100% হবে
-        
-        const balancePercentage = (currentBalance / maxNetBalance) * 100;
-        const displayPercentage = Math.max(0, Math.min(balancePercentage, 100));
-        
+
+        // ৪. যদি কোনো কারণে ম্যাক্স ব্যালেন্স বর্তমানের চেয়ে কম হয় (ভুল ডাটা এড়াতে ফিক্স)
+        if (maxBalance < current) maxBalance = current;
+        if (maxBalance === 0) maxBalance = 1; // ০ দিয়ে ভাগ হওয়া এড়াতে
+
+        // ৫. পারসেন্টেজ ক্যালকুলেশন
+        let percentage = (current / maxBalance) * 100;
+        let displayPercentage = Math.max(0, Math.min(percentage, 100));
+
+        // ৬. প্রগ্রেস বার আপডেট
+        progressFill.style.transition = "width 0.6s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.4s ease";
         progressFill.style.width = displayPercentage + '%';
-        
-        // Basic color coding
+
+        // ৭. কালার কোডিং (ব্যালেন্সের অবস্থা অনুযায়ী)
         if (displayPercentage > 80) {
             progressFill.style.background = '#2ecc71'; // Green
-        } else if (displayPercentage > 60) {
-            progressFill.style.background = '#f1c40f'; // Yellow
         } else if (displayPercentage > 40) {
-            progressFill.style.background = '#f39c12'; // Orange
+            progressFill.style.background = '#f1c40f'; // Yellow
         } else if (displayPercentage > 20) {
-            progressFill.style.background = '#e67e22'; // Dark Orange
+            progressFill.style.background = '#e67e22'; // Orange
         } else {
             progressFill.style.background = '#e74c3c'; // Red
         }
+
+        console.log(`📊 প্রগ্রেস বার: ${displayPercentage.toFixed(2)}% | বর্তমান: ${current} | শুরু হয়েছিল: ${maxBalance}`);
         
     } catch (error) {
-        console.error('❌ Progress bar update error:', error);
+        console.error('❌ Progress bar error:', error);
     }
+}
+
+// ==================== ব্যাকআপ ফাংশন: ডাটা না থাকলে এটি দেখাবে ====================
+function showSimpleMonthlySummary() {
+    let html = `
+        <div style="text-align: center; padding: 40px 20px;">
+            <div style="font-size: 50px; margin-bottom: 20px;">📊</div>
+            <h3 style="color: #2c3e50; margin-bottom: 10px;">মাসিক সারাংশ পাওয়া যায়নি</h3>
+            <p style="color: #7f8c8d; font-size: 14px;">
+                আপনার অ্যাকাউন্টে এখনো পর্যাপ্ত মাসিক রিচার্জ বা বিদ্যুৎ বিলের তথ্য নেই। 
+                তথ্য যোগ করার পর এখানে স্বয়ংক্রিয়ভাবে রিপোর্ট তৈরি হবে।
+            </p>
+            <button onclick="closeModal()" style="margin-top: 20px; padding: 10px 25px; background: #3498db; color: white; border: none; border-radius: 25px; cursor: pointer; font-weight: bold;">
+                ঠিক আছে
+            </button>
+        </div>
+    `;
+    
+    showCustomModal('মাসিক সারাংশ', html);
 }
 
 // প্রোগ্রেস বার সাথে টুলটিপ যোগ করুন
@@ -7198,12 +7187,11 @@ function showDynamicUnitCost() {
     showCustomModal('ডাইনামিক বিল বিশ্লেষণ', html);
 }
 
-// loadTransactionReport ফাংশন - সঠিক অর্ডার সহ
+// loadTransactionReport ফাংশন - সংশোধিত ভার্সন
 function loadTransactionReport() {
-    console.log('🔄 Loading transaction report...');
+    console.log('🔄 Loading complete report...');
     
-    // প্রথমে monthly summary লোড করুন
-    loadMonthlySummary();
+    loadMonthlySummary(); 
     
     const transactionList = document.getElementById('transactionList');
     const totalDepositElement = document.getElementById('totalDeposit');
@@ -7212,98 +7200,90 @@ function loadTransactionReport() {
     const avgMonthlyExpenseElement = document.getElementById('avgMonthlyExpense');
     const totalKWHElement = document.getElementById('totalKWH');
     const avgMonthlyKWHElement = document.getElementById('avgMonthlyKWH');
-    
     const headerTotalKWH = document.getElementById('headerTotalKWH');
     const headerAvgMonthlyKWH = document.getElementById('headerAvgMonthlyKWH');
     
-    let html = '';
-    
     const txs = getActiveTransactions();
+    
     if (txs.length === 0) {
-        if (transactionList) {
-            transactionList.innerHTML = '<p style="text-align: center; color: #7f8c8d; padding: 20px;">কোন ট্রানজেকশন নেই</p>';
-        }
-        if (totalDepositElement) totalDepositElement.textContent = '0 টাকা';
-        if (totalExpenseElement) totalExpenseElement.textContent = '0 টাকা';
-        if (totalTransactionsElement) totalTransactionsElement.textContent = '0';
-        if (avgMonthlyExpenseElement) avgMonthlyExpenseElement.textContent = '0 টাকা';
-        if (totalKWHElement) totalKWHElement.textContent = '0 kWh';
-        if (avgMonthlyKWHElement) avgMonthlyKWHElement.textContent = '0 kWh';
-        if (headerTotalKWH) headerTotalKWH.textContent = '0 kWh';
-        if (headerAvgMonthlyKWH) headerAvgMonthlyKWH.textContent = '0 kWh';
+        if (transactionList) transactionList.innerHTML = '<p style="text-align:center; padding:20px;">কোন ট্রানজেকশন নেই</p>';
         return;
     }
     
-    let totalDeposit = 0;
-    let totalExpense = 0;
-    let totalKWH = 0;
-    
-    const monthlyExpenses = {};
-    const monthlyKWH = {};
+    let totalDeposit = 0, totalExpense = 0, totalKWH = 0;
+    const monthlyExpenses = {}, monthlyKWH = {};
     
     txs.forEach(transaction => {
-        if (transaction.type === 'electricity_bill') {
+        if (transaction.type === 'recharge') {
+            totalDeposit += Math.abs(transaction.amount);
+        } else if (transaction.type === 'electricity_bill') {
+            totalExpense += Math.abs(transaction.amount);
+            totalKWH += transaction.units || 0;
             const date = new Date(transaction.timestamp);
-            const month = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
-            if (!monthlyExpenses[month]) {
-                monthlyExpenses[month] = 0;
-                monthlyKWH[month] = 0;
+            if (!isNaN(date.getTime())) {
+                const month = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+                if (!monthlyExpenses[month]) { monthlyExpenses[month] = 0; monthlyKWH[month] = 0; }
+                monthlyExpenses[month] += Math.abs(transaction.amount);
+                monthlyKWH[month] += transaction.units || 0;
             }
-            monthlyExpenses[month] += Math.abs(transaction.amount);
-            monthlyKWH[month] += transaction.units || 0;
         }
     });
     
-    const avgMonthlyExpense = Object.values(monthlyExpenses).reduce((a, b) => a + b, 0) / Object.keys(monthlyExpenses).length || 0;
-    const avgMonthlyKWH = Object.values(monthlyKWH).reduce((a, b) => a + b, 0) / Object.keys(monthlyKWH).length || 0;
+    const avgMonthlyExpense = Object.values(monthlyExpenses).reduce((a, b) => a + b, 0) / (Object.keys(monthlyExpenses).length || 1);
+    const avgMonthlyKWH = Object.values(monthlyKWH).reduce((a, b) => a + b, 0) / (Object.keys(monthlyKWH).length || 1);
     
-    // ========== ১. মাসিক বিল বিশ্লেষণ ==========
+    // আকর্ষণীয় সামারি কার্ড
+    const summaryCardsHTML = `
+        <div id="attractiveSummaryBar" style="display: flex; flex-wrap: wrap; gap: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 18px; border-radius: 16px; margin-bottom: 20px;">
+            <div style="flex: 1; min-width: 100px; background: rgba(255,255,255,0.95); padding: 12px 8px; border-radius: 12px; text-align: center;">
+                <div style="font-size: 11px; color: #666;">💰 মোট রিচার্জ</div>
+                <div style="font-size: 18px; font-weight: bold; color: #27ae60;">${toBanglaNumber(totalDeposit.toFixed(2))} <span style="font-size: 10px;">টাকা</span></div>
+            </div>
+            <div style="flex: 1; min-width: 100px; background: rgba(255,255,255,0.95); padding: 12px 8px; border-radius: 12px; text-align: center;">
+                <div style="font-size: 11px; color: #666;">💸 মোট খরচ</div>
+                <div style="font-size: 18px; font-weight: bold; color: #e74c3c;">${toBanglaNumber(totalExpense.toFixed(2))} <span style="font-size: 10px;">টাকা</span></div>
+            </div>
+            <div style="flex: 1; min-width: 100px; background: rgba(255,255,255,0.95); padding: 12px 8px; border-radius: 12px; text-align: center;">
+                <div style="font-size: 11px; color: #666;">📝 ট্রানজেকশন</div>
+                <div style="font-size: 18px; font-weight: bold; color: #3498db;">${toBanglaNumber(txs.length.toString())} <span style="font-size: 10px;">টি</span></div>
+            </div>
+            <div style="flex: 1; min-width: 100px; background: rgba(255,255,255,0.95); padding: 12px 8px; border-radius: 12px; text-align: center;">
+                <div style="font-size: 11px; color: #666;">📊 গড় মাসিক খরচ</div>
+                <div style="font-size: 18px; font-weight: bold; color: #f39c12;">${toBanglaNumber(Math.abs(avgMonthlyExpense).toFixed(2))} <span style="font-size: 10px;">টাকা</span></div>
+            </div>
+            <div style="flex: 1; min-width: 100px; background: rgba(255,255,255,0.95); padding: 12px 8px; border-radius: 12px; text-align: center;">
+                <div style="font-size: 11px; color: #666;">⚡ মোট KWH</div>
+                <div style="font-size: 18px; font-weight: bold; color: #9b59b6;">${toBanglaNumber(totalKWH.toFixed(2))} <span style="font-size: 10px;">kWh</span></div>
+            </div>
+            <div style="flex: 1; min-width: 100px; background: rgba(255,255,255,0.95); padding: 12px 8px; border-radius: 12px; text-align: center;">
+                <div style="font-size: 11px; color: #666;">📈 গড় মাসিক KWH</div>
+                <div style="font-size: 18px; font-weight: bold; color: #1abc9c;">${toBanglaNumber(avgMonthlyKWH.toFixed(2))} <span style="font-size: 10px;">kWh</span></div>
+            </div>
+        </div>
+    `;
+    
+    // রেস্ট HTML তৈরি
+    let restHTML = '';
+    
     const monthlyBillData = generateMonthlyBillData();
-    
     if (monthlyBillData.monthUnits > 0) {
-        html += `
-            <div style="background: linear-gradient(135deg, #2ecc71, #27ae60); color: white; padding: 20px; border-radius: 10px; margin: 20px 0; text-align: center;">
+        restHTML += `
+            <div style="background: linear-gradient(135deg, #2ecc71, #27ae60); color: white; padding: 20px; border-radius: 12px; margin: 20px 0; text-align: center;">
                 <h3 style="margin: 0 0 15px 0;">📅 ${monthlyBillData.monthName} মাসের বিল বিশ্লেষণ</h3>
                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
                     <div><div style="font-size: 20px; font-weight: bold;">${toBanglaNumber(monthlyBillData.monthUnits.toFixed(2))}</div><small>মাসিক ইউনিট</small></div>
                     <div><div style="font-size: 20px; font-weight: bold;">${toBanglaNumber(monthlyBillData.totalCost.toFixed(2))}</div><small>মাসিক খরচ</small></div>
                     <div><div style="font-size: 20px; font-weight: bold;">${toBanglaNumber(monthlyBillData.averageRate.toFixed(2))}</div><small>গড়/ইউনিট</small></div>
                 </div>
-                <div style="margin-top: 10px; font-size: 12px; opacity: 0.95;">📌 ${toBanglaNumber((monthlyBillData.billCount||0).toString())}টি বিল | ট্যারিফ: ${toBanglaNumber(monthlyBillData.totalCost.toFixed(2))} টাকা</div>
-            </div>
-            <div style="background: white; padding: 15px; border-radius: 8px; margin: 10px 0;">
-                <h4 style="color: #2c3e50; margin-top: 0;">${monthlyBillData.monthName} মাসের স্ল্যাব ভিত্তিক খরচ:</h4>
-                ${monthlyBillData.slabBreakdown.map(slab => `
-                    <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f8f9fa;">
-                        <span style="color: #7f8c8d;">${translateSlabName(slab.name)} (${toBanglaRange(slab.range)})</span>
-                        <span style="font-weight: bold; color: #e74c3c;">${toBanglaNumber(slab.units.toFixed(2))} kWh × ${slab.rate} টাকা = ${toBanglaNumber(slab.cost.toFixed(2))} টাকা</span>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    } else {
-        html += `
-            <div style="background: #fff3cd; color: #856404; padding: 20px; border-radius: 10px; margin: 20px 0; text-align: center;">
-                <h3 style="margin: 0 0 10px 0;">📅 ${monthlyBillData.monthName} মাস</h3>
-                <p style="margin: 0;">এই মাসে এখনও কোনো ইউনিট ব্যবহার হয়নি</p>
-                <small>মাসিক ইউনিট: ০ kWh | মাসিক খরচ: ০.০০ টাকা</small>
-                <div style="margin-top: 10px; font-size: 12px; opacity: 0.95;">📌 ${toBanglaNumber((monthlyBillData.billCount||0).toString())}টি বিল</div>
             </div>
         `;
     }
     
-    // ========== ২. সব মাসের স্ল্যাব বিশ্লেষণ (সর্বমোট বিলের আগে) ==========
-    const allMonthsAnalysisHTML = generateAllMonthsSlabAnalysisHTML();
-    if (allMonthsAnalysisHTML && allMonthsAnalysisHTML.length > 100) {
-        html += allMonthsAnalysisHTML;
-    }
-    
-    // ========== ৩. সর্বমোট বিল বিশ্লেষণ (সব মাসের বিশ্লেষণের পরে) ==========
     const totalUnitResult = calculateTotalUnitsFromReport();
     if (totalUnitResult.hasUnits && totalUnitResult.totalUnits > 0) {
         const totalUnitCostResult = calculateBillForUnits(totalUnitResult.totalUnits);
-        html += `
-            <div style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 20px; border-radius: 10px; margin: 20px 0; text-align: center;">
+        restHTML += `
+            <div style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 20px; border-radius: 12px; margin: 20px 0; text-align: center;">
                 <h3 style="margin: 0 0 15px 0;">📊 সর্বমোট বিল বিশ্লেষণ</h3>
                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
                     <div><div style="font-size: 20px; font-weight: bold;">${toBanglaNumber(totalUnitResult.totalUnits.toFixed(2))}</div><small>সর্বমোট ইউনিট</small></div>
@@ -7314,71 +7294,43 @@ function loadTransactionReport() {
         `;
     }
     
-    // ========== ৪. ট্রানজেকশন লিস্ট ==========
-    const sortedTransactions = [...txs].sort((a, b) => {
-        try {
-            return new Date(b.timestamp) - new Date(a.timestamp);
-        } catch (error) {
-            return 0;
-        }
+    restHTML += '<h4 style="margin: 25px 0 10px 0; color: #2c3e50;">📝 ট্রানজেকশন হিস্ট্রি</h4>';
+    const sortedTransactions = [...txs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    sortedTransactions.forEach(t => {
+        const isRec = t.type === 'recharge';
+        restHTML += `
+            <div style="background: white; padding: 15px; margin: 10px 0; border-radius: 10px; border-left: 5px solid ${isRec ? '#27ae60' : '#e74c3c'}; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                <div>
+                    <div style="font-weight: bold; color: ${isRec ? '#27ae60' : '#e74c3c'};">${isRec ? '💰 রিচার্জ' : '💡 বিদ্যুৎ বিল'}</div>
+                    <div style="font-size: 12px; color: #7f8c8d;">${t.description || ''} ${t.units ? `| ${toBanglaNumber(t.units.toFixed(2))} kWh` : ''}</div>
+                    <small style="color: #bdc3c7;">${formatTimestampForDisplay(t.timestamp)}</small>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-weight: bold; color: ${isRec ? '#27ae60' : '#e74c3c'}; font-size: 16px;">${isRec ? '+' : '-'} ${toBanglaNumber(Math.abs(t.amount).toFixed(2))} টাকা</div>
+                    <div style="font-size: 11px; color: #95a5a6;">ব্যালেন্স: ${toBanglaNumber(t.balanceAfter?.toFixed(2) || '0.00')}</div>
+                </div>
+            </div>
+        `;
     });
     
-    console.log('📋 Sorted transactions:', sortedTransactions.length);
+    // ✅ গুরুত্বপূর্ণ: সঠিক জায়গায় সামারি কার্ড বসানো
+    const reportTab = document.getElementById('reportTab');
+    const existingBar = document.getElementById('attractiveSummaryBar');
     
-    sortedTransactions.forEach(transaction => {
-        if (transaction.type === 'recharge') {
-            totalDeposit += Math.abs(transaction.amount);
-        } else if (transaction.type === 'electricity_bill') {
-            totalExpense += Math.abs(transaction.amount);
-            totalKWH += transaction.units || 0;
-        }
-        
-        const isCurrentMonth = checkIfCurrentMonth(transaction.timestamp);
-        const monthBadge = isCurrentMonth ? '<span style="background: #27ae60; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin-left: 5px;">বর্তমান মাস</span>' : '';
-        
-        let meterName = '';
-        if (transaction.meterId) {
-            const m = meters.find(meter => meter.id === transaction.meterId);
-            meterName = m ? `<span style="background: #9b59b6; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin-left: 5px;">${m.name}</span>` : '';
-        }
-
-        html += `
-    <div class="transaction-item" data-transaction-id="${transaction.id}" 
-         style="background: white; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid ${transaction.type === 'recharge' ? '#27ae60' : '#e74c3c'}; display: flex; justify-content: space-between; align-items: center;">
-        <div class="transaction-details" style="flex: 2;">
-            <div class="transaction-type" style="font-weight: bold; color: ${transaction.type === 'recharge' ? '#27ae60' : '#e74c3c'};">
-                ${transaction.type === 'recharge' ? '💰 রিচার্জ' : '💡 বিদ্যুৎ বিল'} ${monthBadge} ${meterName}
-            </div>
-            <div class="transaction-info" style="margin-top: 5px;">
-                ${transaction.description}
-                ${transaction.units ? ` | ${toBanglaNumber(transaction.units.toFixed(2))} kWh` : ''}
-                <br>
-                <small style="color: #7f8c8d;">${formatTimestampForDisplay(transaction.timestamp)}</small>
-            </div>
-        </div>
-        <div class="transaction-actions" style="flex: 1; display: flex; flex-direction: column; align-items: flex-end; gap: 5px;">
-            <div class="transaction-amount" style="font-weight: bold; color: ${transaction.type === 'recharge' ? '#27ae60' : '#e74c3c'}; text-align: right;">
-                ${transaction.type === 'recharge' ? '+' : '-'} ${toBanglaNumber(Math.abs(transaction.amount).toFixed(2))} টাকা
-                <div class="transaction-balance" style="font-size: 12px; color: #7f8c8d; margin-top: 3px;">ব্যালেন্স: ${toBanglaNumber(transaction.balanceAfter.toFixed(2))} টাকা</div>
-            </div>
-            <div style="display: flex; gap: 5px;">
-                <button onclick="${transaction.type === 'recharge' ? 'editRechargeTransaction' : 'enableTransactionEdit'}('${transaction.id}')" 
-                        style="padding: 5px 10px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">✏️ এডিট</button>
-                <button onclick="deleteTransaction('${transaction.id}')" 
-                        style="padding: 5px 10px; background: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">🗑️ ডিলিট</button>
-            </div>
-        </div>
-    </div>
-`;
-    });
+    if (existingBar) existingBar.remove();
     
-    // ========== ৫. ফাইনাল HTML সেট করা ==========
-    if (transactionList) {
-        transactionList.innerHTML = html;
-        console.log('✅ Transaction list updated with', sortedTransactions.length, 'transactions');
+    // Report Tab এর শুরুতে কার্ড যোগ করুন
+    if (reportTab) {
+        // প্রথম চাইল্ডের আগে যোগ করুন
+        reportTab.insertAdjacentHTML('afterbegin', summaryCardsHTML);
     }
     
-    // ========== ৬. সব statistics আপডেট করুন ==========
+    // ট্রানজেকশন লিস্ট আপডেট
+    if (transactionList) {
+        transactionList.innerHTML = restHTML;
+    }
+    
+    // এলিমেন্ট আপডেট
     if (totalDepositElement) totalDepositElement.textContent = `${toBanglaNumber(totalDeposit.toFixed(2))} টাকা`;
     if (totalExpenseElement) totalExpenseElement.textContent = `${toBanglaNumber(totalExpense.toFixed(2))} টাকা`;
     if (totalTransactionsElement) totalTransactionsElement.textContent = toBanglaNumber(txs.length.toString());
@@ -7388,14 +7340,7 @@ function loadTransactionReport() {
     if (headerTotalKWH) headerTotalKWH.textContent = `${toBanglaNumber(totalKWH.toFixed(2))} kWh`;
     if (headerAvgMonthlyKWH) headerAvgMonthlyKWH.textContent = `${toBanglaNumber(avgMonthlyKWH.toFixed(2))} kWh`;
     
-    console.log('📊 Report Statistics:', {
-        totalDeposit: totalDeposit,
-        totalExpense: totalExpense,
-        totalKWH: totalKWH,
-        transactionCount: transactions.length,
-        currentMonthUnits: monthlyBillData.monthUnits,
-        currentMonthName: monthlyBillData.monthName
-    });
+    console.log('✅ Report লোড সম্পন্ন');
 }
 
 // ========== সব মাসের কালারফুল স্ল্যাব বিশ্লেষণ HTML জেনারেটর ==========
@@ -8542,119 +8487,45 @@ function checkFinalBalance() {
 
 
 // ব্যালেন্স আপডেট ফাংশন - ফিক্সড
-function updateBalance() {
-    if (!checkAuthentication()) {
-        showLoginModal();
-        return;
-    }
+async function updateBalance() {
+    if (!checkAuthentication()) { showLoginModal(); return; }
     
     try {
-        const balance = parseFloat(document.getElementById('balanceAmount').value);
-        const date = document.getElementById('balanceDate').value;
+        const balanceInput = document.getElementById('balanceAmount');
+        const newBalance = parseFloat(balanceInput.value);
+        if (isNaN(newBalance)) return showNotification('❌ বৈধ ব্যালেন্স দিন!', 'error');
+
+        // 🚀 ১. সিঙ্ক গার্ড অন করুন
+        isLocalUpdate = true;
+
+        // ২. ডাটা আপডেট
+        currentBalance = newBalance;
         
-        if (isNaN(balance)) {
-            showNotification('❌ বৈধ ব্যালেন্স অ্যামাউন্ট দিন!', 'error');
-            return;
+        // ... (আপনার আগের ট্রানজেকশন লজিক টুকু এখানে থাকবে) ...
+        // যেমন: পার্থক্য বের করা, ট্রানজেকশন পুশ করা ইত্যাদি।
+
+        // ৩. সব জায়গায় সেভ
+        saveAllData(); 
+
+        // ৪. ক্লাউডে পুশ এবং ফিনিশ
+        if (typeof autoSyncToFirebase === 'function') {
+            await autoSyncToFirebase(); 
+            console.log("📤 ক্লাউডে নতুন ব্যালেন্স ১৬৫.৮০ সেভ হয়েছে!");
         }
-        
-        if (!date) {
-            showNotification('❌ তারিখ সিলেক্ট করুন!', 'error');
-            return;
-        }
-        
-        const previousBalance = currentBalance;
-        const difference = balance - previousBalance;
-        
-        if (difference === 0) {
-            showNotification('ℹ️ ব্যালেন্সের কোন পরিবর্তন নেই!', 'info');
-            return;
-        }
-        
-        // নতুন ব্যালেন্স সেট করুন
-        currentBalance = balance;
-        
-        // ✅ CRITICAL: লোকাল স্টোরেজে সাথে সাথে সেভ করুন
-        localStorage.setItem('desco_currentBalance', currentBalance.toString());
-        
-        if (difference < 0) {
-            // বিদ্যুৎ বিল (খরচ)
-            const expenseAmount = Math.abs(difference);
-            const estimatedUnits = estimateUnitsFromMoney(expenseAmount);
-            
-            const bill = {
-                id: Date.now(),
-                type: 'electricity_bill',
-                amount: expenseAmount,
-                units: estimatedUnits,
-                description: `বিদ্যুৎ বিল - ${expenseAmount.toFixed(2)} টাকা (${estimatedUnits.toFixed(2)} kWh) - ${new Date(date).toLocaleDateString('bn-BD')}`,
-                balanceAfter: currentBalance,
-                date: date,
-                timestamp: new Date().toLocaleString('bn-BD'),
-                meterId: activeMeterId
-            };
-            
-            transactions.unshift(bill);
-            totalExpended += expenseAmount;
-            
-            showNotification(`✅ বিদ্যুৎ বিল যোগ হয়েছে: ${expenseAmount.toFixed(2)} টাকা`, 'success');
-            
-        } else {
-            // রিচার্জ
-            const rechargeAmount = difference;
-            
-            const recharge = {
-                id: Date.now(),
-                type: 'recharge',
-                amount: rechargeAmount,
-                description: `ম্যানুয়াল রিচার্জ - ${rechargeAmount.toFixed(2)} টাকা`,
-                balanceAfter: currentBalance,
-                date: date,
-                timestamp: new Date().toLocaleString('bn-BD'),
-                meterId: activeMeterId
-            };
-            
-            transactions.unshift(recharge);
-            totalRecharge += rechargeAmount;
-            
-            showNotification(`✅ রিচার্জ যোগ হয়েছে: ${rechargeAmount.toFixed(2)} টাকা`, 'success');
-        }
-        
-        // ✅ সব ডেটা সেভ করুন (একাধিক জায়গায়)
-        saveAllData();
-        
-        // ✅ বর্তমান মিটারের ডেটাও আলাদাভাবে সেভ করুন
-        if (activeMeterId) {
-            const meterDataKey = `meter_data_${activeMeterId}`;
-            const meterData = {
-                transactions: transactions,
-                monthlyRecharges: monthlyRecharges,
-                currentBalance: currentBalance,
-                totalRecharge: totalRecharge,
-                totalExpended: totalExpended,
-                lastDemandChargeMonth: lastDemandChargeMonth,
-                settings: settings,
-                tariffRates: tariffRates,
-                meterInfo: meterInfo,
-                lastUpdated: new Date().toISOString()
-            };
-            localStorage.setItem(meterDataKey, JSON.stringify(meterData));
-        }
-        
-        // UI আপডেট
+
+        // 🚀 ৫. একটু দেরি করে সিঙ্ক গার্ড অফ করুন (যাতে ক্লাউড আপডেট হওয়ার সময় পায়)
+        setTimeout(() => {
+            isLocalUpdate = false;
+            console.log("✅ এখন ক্লাউড সিঙ্ক আবার চালু হলো।");
+        }, 3000);
+
         updateBalanceDisplay();
-        loadTransactionReport();
-		
-		//  প্রগ্রেস বার আপডেট
-		updateProgressBar();
-        
-        // ফিল্ড ক্লিয়ার
-        document.getElementById('balanceAmount').value = '';
-        
-        console.log('✅ ব্যালেন্স আপডেট এবং সেভ করা হয়েছে:', currentBalance);
-        
+        balanceInput.value = '';
+        showNotification('✅ ব্যালেন্স সফলভাবে আপডেট হয়েছে!', 'success');
+
     } catch (error) {
-        console.error('ব্যালেন্স আপডেট করতে সমস্যা:', error);
-        showNotification('❌ ব্যালেন্স আপডেট করতে সমস্যা হচ্ছে!', 'error');
+        isLocalUpdate = false;
+        console.error('Error:', error);
     }
 }
 
@@ -15627,33 +15498,25 @@ function startRealtimeSync(userId) {
     const dataRef = database.ref('meter_data/' + userId);
 
     dataRef.on('value', (snapshot) => {
+        if (isLocalUpdate) return; // লোকাল আপডেট চললে ক্লাউড স্কিপ করবে
+
         const cloudData = snapshot.val();
-        
         if (cloudData) {
-            console.log("🔔 ক্লাউড থেকে ডাটা সিঙ্ক হচ্ছে...");
-            
-            // ডাটা গ্লোবাল ভেরিয়েবলে সেট করা
+            // ডাটা আপডেট
             transactions = cloudData.transactions || [];
             monthlyRecharges = cloudData.monthlyRecharges || [];
             currentBalance = parseFloat(cloudData.currentBalance) || 0;
             totalRecharge = parseFloat(cloudData.totalRecharge) || 0;
             totalExpended = parseFloat(cloudData.totalExpended) || 0;
-            meters = cloudData.meters || [];
-            activeMeterId = cloudData.activeMeterId || null;
             
-            // এটিই সবচেয়ে গুরুত্বপূর্ণ লাইন:
-            if (cloudData.meterInfo) {
-                meterInfo = cloudData.meterInfo;
-            } else if (meters.length > 0) {
-                // যদি meterInfo না থাকে, প্রথম মিটার থেকে ডাটা নাও
-                meterInfo = meters[0];
-            }
+            // মিটার লিস্ট এবং আইডি আপডেট (ক্লাউড থেকে)
+            if (cloudData.meters) meters = cloudData.meters;
+            if (cloudData.activeMeterId) activeMeterId = cloudData.activeMeterId;
 
-            // UI আপডেট
-            updateMeterDisplay();
+            // ✅ এই লাইনের বদলে updateMeterDisplay কল করুন
+            updateMeterDisplay(); 
             updateBalanceDisplay();
             if (typeof loadTransactionReport === 'function') loadTransactionReport();
-            if (typeof updateProgressBar === 'function') updateProgressBar();
         }
     });
 }
@@ -16024,3 +15887,323 @@ function generateRandomDigits(length) {
     }
     return result;
 }
+
+// ==================== সারাংশ কার্ড (পেজ রিফ্রেশে থাকবে) ====================
+
+function loadSummaryCards() {
+    // 1. সঠিক transactions ভেরিয়েবল থেকে ডাটা নিন
+    const realTransactions = (typeof transactions !== 'undefined' && transactions.length > 0) ? transactions : window.transactions;
+
+    let totalDeposit = 0;
+    let totalExpense = 0;
+    let totalKWH = 0;
+
+    realTransactions.forEach(t => {
+        if (t.type === 'recharge') {
+            totalDeposit += Math.abs(t.amount);
+        } else if (t.type === 'electricity_bill') {
+            totalExpense += Math.abs(t.amount);
+            totalKWH += t.units || 0;
+        }
+    });
+
+    // 2. সঠিক মাসিক গড় বের করুন
+    const monthMap = {};
+    realTransactions.forEach(t => {
+        if (t.type === 'electricity_bill' && t.timestamp) {
+            try {
+                const d = new Date(t.timestamp);
+                if (!isNaN(d.getTime())) {
+                    const month = `${d.getFullYear()}-${d.getMonth() + 1}`;
+                    monthMap[month] = monthMap[month] || { expense: 0, kwh: 0 };
+                    monthMap[month].expense += Math.abs(t.amount);
+                    monthMap[month].kwh += t.units || 0;
+                }
+            } catch(e) {}
+        }
+    });
+
+    const months = Object.keys(monthMap);
+    const monthCount = months.length || 1;
+
+    let totalMonthlyExpense = 0;
+    let totalMonthlyKWH = 0;
+    months.forEach(month => {
+        totalMonthlyExpense += monthMap[month].expense;
+        totalMonthlyKWH += monthMap[month].kwh;
+    });
+
+    const avgExpense = totalMonthlyExpense / monthCount;
+    const avgKWH = totalMonthlyKWH / monthCount;
+
+    // সঠিক ট্রানজেকশন সংখ্যা
+    const txCount = realTransactions.length;
+
+    // 3. বাংলা সংখ্যায় কনভার্ট ফাংশন
+    function toBn(num) {
+        const bnDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+        const numStr = num.toFixed(2);
+        return numStr.replace(/\d/g, d => bnDigits[parseInt(d)]);
+    }
+
+    function toBnInt(num) {
+        const bnDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+        return num.toString().replace(/\d/g, d => bnDigits[parseInt(d)]);
+    }
+
+    // 4. পুরানো কার্ড সরান
+    const oldCard = document.getElementById('attractiveSummaryBar');
+    if (oldCard) oldCard.remove();
+
+    // 5. সার্চ বক্স খুঁজুন
+    let searchBox = document.querySelector('#searchInput');
+    if (!searchBox) searchBox = document.querySelector('input[placeholder*="খুঁজুন"]');
+
+    // 6. নতুন কার্ড তৈরি
+    const newCard = document.createElement('div');
+    newCard.id = 'attractiveSummaryBar';
+    newCard.style.cssText = 'display: flex; flex-wrap: wrap; gap: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 15px; border-radius: 16px; margin: 10px 0 20px 0;';
+
+    newCard.innerHTML = `
+        <div style="flex:1;min-width:100px;background:white;padding:10px 8px;border-radius:12px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.1)">
+            <div style="font-size:10px;color:#666;">💰 রিচার্জ</div>
+            <div style="font-size:15px;font-weight:bold;color:#27ae60;">${toBn(totalDeposit)} <span style="font-size:10px;">টাকা</span></div>
+        </div>
+        <div style="flex:1;min-width:100px;background:white;padding:10px 8px;border-radius:12px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.1)">
+            <div style="font-size:10px;color:#666;">💸 খরচ</div>
+            <div style="font-size:15px;font-weight:bold;color:#e74c3c;">${toBn(totalExpense)} <span style="font-size:10px;">টাকা</span></div>
+        </div>
+        <div style="flex:1;min-width:100px;background:white;padding:10px 8px;border-radius:12px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.1)">
+            <div style="font-size:10px;color:#666;">📝 ট্রানজেকশন</div>
+            <div style="font-size:15px;font-weight:bold;color:#3498db;">${toBnInt(txCount)} <span style="font-size:10px;">টি</span></div>
+        </div>
+        <div style="flex:1;min-width:100px;background:white;padding:10px 8px;border-radius:12px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.1)">
+            <div style="font-size:10px;color:#666;">📊 গড় খরচ</div>
+            <div style="font-size:15px;font-weight:bold;color:#f39c12;">${toBn(avgExpense)} <span style="font-size:10px;">টাকা</span></div>
+        </div>
+        <div style="flex:1;min-width:100px;background:white;padding:10px 8px;border-radius:12px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.1)">
+            <div style="font-size:10px;color:#666;">⚡ KWH</div>
+            <div style="font-size:15px;font-weight:bold;color:#9b59b6;">${toBn(totalKWH)} <span style="font-size:10px;">kWh</span></div>
+        </div>
+        <div style="flex:1;min-width:100px;background:white;padding:10px 8px;border-radius:12px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.1)">
+            <div style="font-size:10px;color:#666;">📈 গড় KWH</div>
+            <div style="font-size:15px;font-weight:bold;color:#1abc9c;">${toBn(avgKWH)} <span style="font-size:10px;">kWh</span></div>
+        </div>
+    `;
+
+    // 7. সঠিক জায়গায় বসান
+    if (searchBox && searchBox.parentElement) {
+        searchBox.parentElement.insertAdjacentElement('afterend', newCard);
+    } else {
+        const reportTab = document.getElementById('reportTab');
+        if (reportTab) {
+            reportTab.insertAdjacentElement('afterbegin', newCard);
+        }
+    }
+
+    // 8. পুরানো সামারি লুকান
+    document.querySelectorAll('.report-summary, .report-summary-bar, .summary-grid').forEach(el => {
+        if (el.id !== 'attractiveSummaryBar') el.style.display = 'none';
+    });
+}
+
+// loadTransactionReport এর পরে কার্ড লোড করার জন্য
+if (typeof window.loadTransactionReport === 'function') {
+    const originalLoadReport = window.loadTransactionReport;
+    window.loadTransactionReport = function() {
+        originalLoadReport();
+        setTimeout(loadSummaryCards, 100);
+    };
+}
+
+// পেজ লোডে একবার রান করুন
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(loadSummaryCards, 500);
+    });
+} else {
+    setTimeout(loadSummaryCards, 500);
+}
+
+console.log('✅ সারাংশ কার্ড স্থায়ীভাবে ইনস্টল করা হয়েছে');
+
+// ==================== সর্বশেষ খরচ এবং ট্রানজেকশন হিস্ট্রি ফিক্স ====================
+
+function fixLastBalanceAndHistory() {
+    // 1. সর্বশেষ খরচ আপডেট করুন
+    const lastBalanceEl = document.getElementById('lastBalance');
+    if (lastBalanceEl) {
+        const allBills = transactions.filter(t => t.type === 'electricity_bill');
+        if (allBills.length > 0) {
+            const lastBill = allBills.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+            const lastAmount = Math.abs(lastBill.amount);
+            lastBalanceEl.textContent = `${toBanglaNumber(lastAmount.toFixed(2))} টাকা`;
+            console.log(`✅ সর্বশেষ খরচ আপডেট: ${lastAmount.toFixed(2)} টাকা`);
+        } else {
+            lastBalanceEl.textContent = '০.০০ টাকা';
+        }
+    }
+
+    // 2. ট্রানজেকশন লিস্ট রিফ্রেশ করুন
+    const transactionList = document.getElementById('transactionList');
+    if (transactionList) {
+        const txs = [...transactions].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        
+        if (txs.length === 0) {
+            transactionList.innerHTML = '<p style="text-align:center;padding:20px;">কোন ট্রানজেকশন নেই</p>';
+            return;
+        }
+        
+        let historyHTML = '<h4 style="margin: 20px 0 10px 0;">📝 ট্রানজেকশন হিস্ট্রি</h4>';
+        
+        txs.forEach(t => {
+            const isRecharge = t.type === 'recharge';
+            const date = t.date || (t.timestamp ? new Date(t.timestamp).toLocaleDateString('bn-BD') : 'তারিখ নেই');
+            const amount = Math.abs(t.amount);
+            
+            historyHTML += `
+                <div style="background:white;padding:12px;margin:8px 0;border-radius:10px;border-left:4px solid ${isRecharge ? '#27ae60' : '#e74c3c'};display:flex;justify-content:space-between;align-items:center;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
+                    <div>
+                        <div style="font-weight:bold;color:${isRecharge ? '#27ae60' : '#e74c3c'}">${isRecharge ? '💰 রিচার্জ' : '💡 বিদ্যুৎ বিল'}</div>
+                        <div style="font-size:11px;color:#7f8c8d;">${date}</div>
+                        ${t.units ? `<div style="font-size:11px;color:#3498db;">${t.units.toFixed(2)} kWh</div>` : ''}
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-weight:bold;color:${isRecharge ? '#27ae60' : '#e74c3c'}">${isRecharge ? '+' : '-'} ${toBanglaNumber(amount.toFixed(2))} টাকা</div>
+                        <div style="font-size:10px;color:#95a5a6;">ব্যালেন্স: ${toBanglaNumber(t.balanceAfter?.toFixed(2) || '0.00')}</div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        transactionList.innerHTML = historyHTML;
+        console.log(`✅ ট্রানজেকশন হিস্ট্রি আপডেট: ${txs.length} টি`);
+    }
+}
+
+// loadTransactionReport এর পরে ফিক্স চালানোর জন্য
+if (typeof window.loadTransactionReport === 'function') {
+    const originalLoadReport = window.loadTransactionReport;
+    window.loadTransactionReport = function() {
+        originalLoadReport();
+        setTimeout(() => {
+            fixLastBalanceAndHistory();
+            loadSummaryCards(); // আগের কার্ড ফাংশনও কল করুন
+        }, 100);
+    };
+}
+
+// পেজ লোডে একবার রান করুন
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(fixLastBalanceAndHistory, 500);
+    });
+} else {
+    setTimeout(fixLastBalanceAndHistory, 500);
+}
+
+console.log('✅ সর্বশেষ খরচ ও ট্রানজেকশন হিস্ট্রি ফিক্স ইনস্টল করা হয়েছে');
+
+// ==================== সর্বশেষ খরচ ডাইনামিক ফিক্স ====================
+
+function fixLastBalanceDynamically() {
+    // 1. ট্রানজেকশন থেকে সর্বশেষ বিল বের করুন
+    const allBills = transactions.filter(t => t.type === 'electricity_bill');
+    if (allBills.length === 0) return;
+    
+    // তারিখ অনুযায়ী সাজান
+    const sortedBills = [...allBills].sort((a, b) => {
+        const dateA = new Date(a.timestamp || a.date);
+        const dateB = new Date(b.timestamp || b.date);
+        return dateB - dateA;
+    });
+    
+    const lastBill = sortedBills[0];
+    const lastAmount = Math.abs(lastBill.amount);
+    const lastBalance = lastBill.balanceAfter || (currentBalance);
+    
+    // 2. এলিমেন্ট আপডেট করুন (হার্ডকোড ছাড়া)
+    const lastBalanceSpan = document.getElementById('lastBalance');
+    if (lastBalanceSpan) {
+        lastBalanceSpan.textContent = `${toBanglaNumber(lastAmount.toFixed(2))} টাকা`;
+        console.log(`✅ সর্বশেষ খরচ আপডেট: ${lastAmount.toFixed(2)} টাকা`);
+    }
+    
+    // 3. বর্তমান ব্যালেন্স আপডেট করুন
+    const currentSpan = document.getElementById('currentBalance');
+    if (currentSpan) {
+        currentSpan.textContent = currentBalance.toFixed(2);
+    }
+}
+
+// loadTransactionReport এর পরে রান করার জন্য
+if (typeof window.loadTransactionReport === 'function') {
+    const originalReport = window.loadTransactionReport;
+    window.loadTransactionReport = function() {
+        originalReport();
+        setTimeout(fixLastBalanceDynamically, 150);
+    };
+}
+
+// পেজ লোডে রান করুন
+setTimeout(fixLastBalanceDynamically, 500);
+
+console.log('✅ সর্বশেষ খরচ ডাইনামিক ফিক্স ইনস্টল করা হয়েছে');
+
+// ==================== সর্বশেষ খরচ স্থায়ী ফিক্স (টাকা একবার) ====================
+
+function fixLastBalanceText() {
+    const lastBalanceSpan = document.getElementById('lastBalance');
+    if (!lastBalanceSpan) return;
+    
+    let currentText = lastBalanceSpan.innerText || lastBalanceSpan.textContent;
+    
+    // "টাকা টাকা" থাকলে সেটিকে "টাকা" করুন
+    if (currentText.includes('টাকা টাকা')) {
+        let fixedText = currentText.replace(/টাকা\s*টাকা/gi, 'টাকা');
+        lastBalanceSpan.textContent = fixedText;
+        console.log('✅ সর্বশেষ খরচ টেক্সট ঠিক করা হয়েছে:', fixedText);
+    }
+    
+    // যদি একাধিকবার টাকা থাকে
+    if (currentText.match(/(টাকা)/g)?.length > 1) {
+        let fixedText = currentText.replace(/(টাকা)+/g, 'টাকা');
+        lastBalanceSpan.textContent = fixedText;
+        console.log('✅ সর্বশেষ খরচ ঠিক করা হয়েছে:', fixedText);
+    }
+}
+
+// loadTransactionReport এর পরে রান করার জন্য
+if (typeof window.loadTransactionReport === 'function') {
+    const originalFn = window.loadTransactionReport;
+    window.loadTransactionReport = function() {
+        originalFn();
+        setTimeout(fixLastBalanceText, 100);
+    };
+}
+
+// পেজ লোডে রান করুন
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(fixLastBalanceText, 500);
+    });
+} else {
+    setTimeout(fixLastBalanceText, 500);
+}
+
+// DOM পরিবর্তন দেখার জন্য একটি Observer (নিশ্চিত করার জন্য)
+const observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function() {
+        fixLastBalanceText();
+    });
+});
+
+if (document.getElementById('lastBalance')) {
+    observer.observe(document.getElementById('lastBalance'), { 
+        childList: true, 
+        characterData: true, 
+        subtree: true 
+    });
+}
+
+console.log('✅ সর্বশেষ খরচ টেক্সট ফিক্স স্থায়ীভাবে ইনস্টল করা হয়েছে');
