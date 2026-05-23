@@ -4,4 +4,6 @@ node_modules/
 *.log
 .env
 backup_files/
-temp/
+temp/js/
+*Copy*.js
+* - Copy*.js
