@@ -1551,76 +1551,75 @@ function loadMeterInfo() {
     }
 }
 
-// মিটার তথ্য সেভ করার ফাংশন
+// ==================== ফাইনাল মিটার সেভ ফাংশন (Consolidated) ====================
 function saveMeterInfo() {
+    console.log("🚀 saveMeterInfo ফাংশন কাজ শুরু করেছে...");
+    
     try {
-        // ১. ইনপুট ফিল্ড থেকে নতুন তথ্যগুলো নিন
-        const newName = document.getElementById('editMeterName').value.trim();
-        const newMeterNumber = document.getElementById('editMeterNumber').value.trim();
-        const newAccountNumber = document.getElementById('editAccountNumber').value.trim();
-        const newAddress = document.getElementById('editMeterAddress')?.value.trim() || "";
-        const newPhone = document.getElementById('editMeterPhone')?.value.trim() || "";
+        // ১. ইনপুট ফিল্ডগুলো থেকে ডাটা নেওয়া
+        const name = document.getElementById('editMeterName')?.value.trim();
+        const num = document.getElementById('editMeterNumber')?.value.trim();
+        const acc = document.getElementById('editAccountNumber')?.value.trim();
+        const address = document.getElementById('editMeterAddress')?.value.trim() || "";
+        const phone = document.getElementById('editMeterPhone')?.value.trim() || "";
 
-        // ২. ভ্যালিডেশন (নাম এবং নম্বর ফাঁকা রাখা যাবে না)
-        if (!newName || !newMeterNumber || !newAccountNumber) {
-            showNotification('❌ নাম, মিটার নং এবং অ্যাকাউন্ট নং অবশ্যই পূরণ করুন!', 'error');
+        // ২. ভ্যালিডেশন
+        if (!name || !num || !acc) {
+            alert("❌ দয়া করে নাম, মিটার নং এবং অ্যাকাউন্ট নং প্রদান করুন!");
             return;
         }
 
-        // ৩. গ্লোবাল meterInfo অবজেক্ট আপডেট করুন
-        meterInfo = {
-            name: newName,
-            meterNumber: newMeterNumber,
-            accountNumber: newAccountNumber,
-            address: newAddress,
-            phone: newPhone
+        // ৩. গ্লোবাল মেমোরি আপডেট
+        const updatedData = {
+            id: activeMeterId, // বর্তমান মিটার আইডি ঠিক রাখা
+            name: name,
+            meterNumber: num,
+            accountNumber: acc,
+            address: address,
+            phone: phone
         };
 
-        // ৪. meters অ্যারেতে বর্তমান মিটারের তথ্য আপডেট করুন
-        const meterIndex = meters.findIndex(m => m.id === activeMeterId);
-        if (meterIndex !== -1) {
-            meters[meterIndex] = { 
-                ...meters[meterIndex], 
-                name: newName, 
-                meterNumber: newMeterNumber, 
-                accountNumber: newAccountNumber,
-                address: newAddress,
-                phone: newPhone
-            };
+        meterInfo = updatedData;
+
+        // ৪. মিটার লিস্ট (meters array) আপডেট
+        if (Array.isArray(meters)) {
+            const index = meters.findIndex(m => m.id === activeMeterId);
+            if (index !== -1) {
+                meters[index] = updatedData;
+            }
         }
 
-        // ৫. লোকাল স্টোরেজে সেভ করুন
-        localStorage.setItem('desco_meters', JSON.stringify(meters));
+        // ৫. লোকাল স্টোরেজ সেভ
         localStorage.setItem('desco_meterInfo', JSON.stringify(meterInfo));
+        localStorage.setItem('desco_meters', JSON.stringify(meters));
 
-        // ৬. ক্লাউডে (Firebase) ডাটা সিঙ্ক করুন
+        // ৬. ক্লাউড (Firebase) সিঙ্ক
         if (typeof autoSyncToFirebase === 'function') {
             autoSyncToFirebase();
+            console.log("📤 ক্লাউডে সিঙ্ক পাঠানো হয়েছে");
         }
 
-        // ৭. UI আপডেট করুন
+        // ৭. UI আপডেট এবং এডিট মোড বন্ধ
         updateMeterDisplay();
         
-        // ৮. এডিট মোড বন্ধ করে ডিসপ্লে মোডে ফিরে যান
-        if (typeof toggleMeterEdit === 'function') {
-            toggleMeterEdit(); 
-        } else {
-            // যদি toggleMeterEdit ফাংশন না থাকে, সরাসরি স্টাইল পরিবর্তন করুন
-            document.getElementById('meterDisplay').style.display = 'block';
-            document.getElementById('meterEdit').style.display = 'none';
+        const displayDiv = document.getElementById('meterDisplay');
+        const editDiv = document.getElementById('meterEdit');
+        if (displayDiv && editDiv) {
+            displayDiv.style.display = 'block';
+            editDiv.style.display = 'none';
         }
 
         showNotification('✅ মিটার তথ্য সফলভাবে সেভ করা হয়েছে!', 'success');
-        console.log('✅ Meter saved:', meterInfo);
 
     } catch (error) {
-        console.error('Save Meter Error:', error);
-        showNotification('❌ সেভ করতে সমস্যা হয়েছে!', 'error');
+        console.error("❌ Save Function Error:", error);
+        alert("সেভ করতে সমস্যা হয়েছে: " + error.message);
     }
 }
 
-// গ্লোবাল এক্সেস নিশ্চিত করতে
+// সরাসরি উইন্ডো অবজেক্টে সেট করা যাতে HTML যেকোনো সময় খুঁজে পায়
 window.saveMeterInfo = saveMeterInfo;
+console.log("✅ saveMeterInfo ফাংশন গ্লোবাল স্কোপে রেজিস্টার হয়েছে।");
 
 // মিটার ডিসপ্লে আপডেট - ঠিকানা ও ফোন দেখাবে
 function updateMeterDisplay() {
@@ -16025,70 +16024,3 @@ function generateRandomDigits(length) {
     }
     return result;
 }
-
-// ==================== সরাসরি গ্লোবাল স্কোপে সেভ ফাংশন = :
-window.saveMeterInfo = function() {
-    console.log("⏳ মিটার সেভ ফাংশন কল হয়েছে...");
-    
-    try {
-        // ইনপুট ফিল্ড থেকে ভ্যালু সংগ্রহ
-        const nameInput = document.getElementById('editMeterName');
-        const numInput = document.getElementById('editMeterNumber');
-        const accInput = document.getElementById('editAccountNumber');
-
-        if (!nameInput || !numInput || !accInput) {
-            console.error("❌ ইনপুট ফিল্ড খুঁজে পাওয়া যায়নি!");
-            return;
-        }
-
-        const newName = nameInput.value.trim();
-        const newMeterNumber = numInput.value.trim();
-        const newAccountNumber = accInput.value.trim();
-
-        if (!newName || !newMeterNumber || !newAccountNumber) {
-            alert('❌ সব তথ্য পূরণ করুন!');
-            return;
-        }
-
-        // গ্লোবাল ভেরিয়েবল আপডেট
-        if (typeof meterInfo !== 'undefined') {
-            meterInfo.name = newName;
-            meterInfo.meterNumber = newMeterNumber;
-            meterInfo.accountNumber = newAccountNumber;
-        }
-
-        // বর্তমান মিটার লিস্ট আপডেট
-        if (typeof meters !== 'undefined' && typeof activeMeterId !== 'undefined') {
-            const index = meters.findIndex(m => m.id === activeMeterId);
-            if (index !== -1) {
-                meters[index].name = newName;
-                meters[index].meterNumber = newMeterNumber;
-                meters[index].accountNumber = newAccountNumber;
-            }
-        }
-
-        // স্টোরেজ আপডেট
-        localStorage.setItem('desco_meterInfo', JSON.stringify(meterInfo));
-        localStorage.setItem('desco_meters', JSON.stringify(meters));
-
-        // ফায়ারবেস সিঙ্ক (যদি ফাংশন থাকে)
-        if (typeof autoSyncToFirebase === 'function') {
-            autoSyncToFirebase();
-        }
-
-        // UI আপডেট
-        if (typeof updateMeterDisplay === 'function') {
-            updateMeterDisplay();
-        }
-
-        // ডিসপ্লে মোডে ফেরত যাওয়া
-        document.getElementById('meterDisplay').style.display = 'block';
-        document.getElementById('meterEdit').style.display = 'none';
-
-        showNotification('✅ মিটার তথ্য আপডেট করা হয়েছে!', 'success');
-
-    } catch (e) {
-        console.error("Critical Save Error:", e);
-        alert("সেভ করতে ভুল হয়েছে: " + e.message);
-    }
-};
