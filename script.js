@@ -370,23 +370,21 @@ async function handleRegister(event) {
 }
 
 function resetAppState() {
-    console.log("🧹 অ্যাপ মেমোরি পরিষ্কার করা হচ্ছে...");
-    
-    // সব গ্লোবাল ভেরিয়েবল রিসেট
+    // শুধু ভেরিয়েবল জিরো করা
     window.currentBalance = 0;
     window.totalRecharge = 0;
     window.totalExpended = 0;
     window.transactions = [];
     window.monthlyRecharges = [];
-    window.meters = [];
     window.activeMeterId = null;
-    window.lastDemandChargeMonth = '';
     
-    // UI পরিষ্কার করা
-    if (document.getElementById('currentBalance')) document.getElementById('currentBalance').textContent = '0.00';
-    if (document.getElementById('transactionList')) document.getElementById('transactionList').innerHTML = '';
+    // লোকাল স্টোরেজ থেকে শুধু মিটারের ডাটা মুছুন, ইউজার লিস্ট (desco_users) নয়
+    localStorage.removeItem('desco_currentBalance');
+    localStorage.removeItem('desco_transactions');
+    localStorage.removeItem('desco_monthlyRecharges');
+    localStorage.removeItem('desco_current_user');
     
-    console.log("✅ মেমোরি এখন একদম খালি।");
+    console.log("🧹 শুধু মিটার ডাটা পরিষ্কার করা হয়েছে।");
 }
 
 
