@@ -1397,9 +1397,11 @@ let autoBackupSettings = {
 
 // মিটার তথ্য
 let meterInfo = {
-    name: "মকসুদা বেগম",
-    meterNumber: "030619019016",
-    accountNumber: "41438590"
+    name: "K. M. Abu Bakkar Siddek (Shahed)", 
+    meterNumber: "000000000000",
+    accountNumber: "00000000",
+    address: "",
+    phone: ""
 };
 
 let meters = [];
@@ -2789,7 +2791,7 @@ function updateUI() {
     updateAutoBackupUI();
 }
 
-// ডিফল্ট ভ্যালুতে রিসেট
+// ডিফল্ট ভ্যালুতে রিসেট (সংশোধিত ভার্সন)
 function resetToDefault() {
     currentBalance = 0;
     totalRecharge = 0;
@@ -2799,25 +2801,31 @@ function resetToDefault() {
     monthlyRecharges = [];
     lastDemandChargeMonth = '';
     
-    // মিটার তথ্য ডিফল্টে রিসেট
-    meters = [{
+    // ১. আপনার দেওয়া নাম এবং ডিফল্ট মিটার তথ্য সেট করুন
+    const defaultMeter = {
         id: 'meter_1',
-        name: "মকসুদা বেগম",
-        meterNumber: "030619019016",
-        accountNumber: "41438590"
-    }];
+        name: "K. M. Abu Bakkar Siddek (Shahed)",
+        meterNumber: "000000000000",
+        accountNumber: "00000000",
+        address: "ঠিকানা নেই",
+        phone: "01XXXXXXXXX"
+    };
+
+    meters = [defaultMeter];
     activeMeterId = 'meter_1';
     
     meterInfo = {
-        name: "মকসুদা বেগম",
-        meterNumber: "030619019016",
-        accountNumber: "41438590"
+        name: defaultMeter.name,
+        meterNumber: defaultMeter.meterNumber,
+        accountNumber: defaultMeter.accountNumber,
+        address: defaultMeter.address,
+        phone: defaultMeter.phone
     };
     
-    // ট্যারিফ রেট ডিফল্টে রিসেট
+    // ২. ট্যারিফ রেট ডিফল্টে রিসেট (সঠিক স্ল্যাব রেঞ্জসহ)
     tariffRates = [
         { range: [0, 50], rate: 3.50, name: "Lifeline" },
-        { range: [0, 75], rate: 4.00, name: "1st Slab" },
+        { range: [51, 75], rate: 4.00, name: "1st Slab" },
         { range: [76, 200], rate: 5.45, name: "2nd Slab" },
         { range: [201, 300], rate: 5.70, name: "3rd Slab" },
         { range: [301, 400], rate: 6.02, name: "4th Slab" },
@@ -2825,7 +2833,7 @@ function resetToDefault() {
         { range: [601, Infinity], rate: 10.70, name: "6th Slab" }
     ];
     
-    // সেটিংস ডিফল্টে রিসেট
+    // ৩. সেটিংস ডিফল্টে রিসেট
     settings = {
         vatRate: 5.0,
         rebateRate: 0.85,
@@ -2833,7 +2841,7 @@ function resetToDefault() {
         firstDemandCharge: 588
     };
     
-    // অটো ব্যাকআপ ডিফল্টে রিসেট
+    // ৪. অটো ব্যাকআপ ডিফল্টে রিসেট
     autoBackupSettings = {
         enabled: false,
         backupTime: "23:00",
@@ -2843,9 +2851,13 @@ function resetToDefault() {
         backupTimer: null
     };
     
+    // ৫. সব ডাটা সেভ এবং UI আপডেট
     saveAllData();
     updateMeterDisplay();
     updateTariffDisplay();
+    updateBalanceDisplay(); // ব্যালেন্স জিরো দেখানোর জন্য
+    
+    console.log("✅ অ্যাপ ডাটা এবং নাম ডিফল্টে রিসেট করা হয়েছে।");
 }
 
 // ট্যাব ম্যানেজমেন্ট - একক আপডেটেড ভার্সন
@@ -15514,21 +15526,30 @@ function startRealtimeSync(userId) {
         const cloudData = snapshot.val();
         
         if (cloudData) {
-            // ডাটা থাকলে লোড করো
+            console.log("🔔 ক্লাউড থেকে ডাটা সিঙ্ক হচ্ছে...");
+            
+            // ডাটা গ্লোবাল ভেরিয়েবলে সেট করা
             transactions = cloudData.transactions || [];
             monthlyRecharges = cloudData.monthlyRecharges || [];
-            currentBalance = cloudData.currentBalance || 0;
-            totalRecharge = cloudData.totalRecharge || 0;
-            totalExpended = cloudData.totalExpended || 0;
+            currentBalance = parseFloat(cloudData.currentBalance) || 0;
+            totalRecharge = parseFloat(cloudData.totalRecharge) || 0;
+            totalExpended = parseFloat(cloudData.totalExpended) || 0;
             meters = cloudData.meters || [];
             activeMeterId = cloudData.activeMeterId || null;
-            meterInfo = cloudData.meterInfo || meterInfo;
             
-            updateUI();
-        } else {
-            console.log("🆕 নতুন ইউজার, ডাটা তৈরি হচ্ছে...");
-            // যদি ভুলবশত রেজিস্ট্রেশনের সময় ডাটা তৈরি না হয়, এখানে আবার চেষ্টা করবে
-            // (ঐচ্ছিক: আপনি চাইলে handleRegister এর লজিক এখানেও রিপিট করতে পারেন)
+            // এটিই সবচেয়ে গুরুত্বপূর্ণ লাইন:
+            if (cloudData.meterInfo) {
+                meterInfo = cloudData.meterInfo;
+            } else if (meters.length > 0) {
+                // যদি meterInfo না থাকে, প্রথম মিটার থেকে ডাটা নাও
+                meterInfo = meters[0];
+            }
+
+            // UI আপডেট
+            updateMeterDisplay();
+            updateBalanceDisplay();
+            if (typeof loadTransactionReport === 'function') loadTransactionReport();
+            if (typeof updateProgressBar === 'function') updateProgressBar();
         }
     });
 }
