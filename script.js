@@ -1484,34 +1484,68 @@ function loadMeterInfo() {
     try {
         const savedMeters = localStorage.getItem('desco_meters');
         const savedActiveId = localStorage.getItem('desco_active_meter_id');
+
         if (savedMeters) {
+            // ১. যদি আগে থেকে মিটার সেভ করা থাকে
             meters = JSON.parse(savedMeters) || [];
             activeMeterId = savedActiveId || (meters[0] ? meters[0].id : null);
+            
             if (activeMeterId && meters.length > 0) {
                 const m = meters.find(x => x.id === activeMeterId) || meters[0];
-                meterInfo = { name: m.name, meterNumber: m.meterNumber, accountNumber: m.accountNumber };
+                meterInfo = { 
+                    name: m.name, 
+                    meterNumber: m.meterNumber, 
+                    accountNumber: m.accountNumber,
+                    address: m.address || "",
+                    phone: m.phone || ""
+                };
             }
         } else {
+            // ২. যদি কোনো ডাটা না থাকে (নতুন ইউজার)
             const legacy = localStorage.getItem('desco_meterInfo');
+            
             if (legacy) {
+                // পুরনো ফরমেট থেকে ডাটা মাইগ্রেশন
                 const m = JSON.parse(legacy);
                 const id = 'm_' + Date.now();
-                meters = [{ id, name: m.name, meterNumber: m.meterNumber, accountNumber: m.accountNumber }];
+                meters = [{ 
+                    id, 
+                    name: m.name, 
+                    meterNumber: m.meterNumber, 
+                    accountNumber: m.accountNumber,
+                    address: m.address || "",
+                    phone: m.phone || ""
+                }];
                 activeMeterId = id;
                 meterInfo = m;
-                localStorage.setItem('desco_meters', JSON.stringify(meters));
-                localStorage.setItem('desco_active_meter_id', activeMeterId);
             } else {
+                // ৩. একদম ফ্রেশ ইউজার - আপনার দেওয়া ডিফল্ট নাম সেট হবে
                 const id = 'm_' + Date.now();
-                meters = [{ id, name: meterInfo.name, meterNumber: meterInfo.meterNumber, accountNumber: meterInfo.accountNumber }];
+                const defaultName = "K. M. Abu Bakkar Siddek (Shahed)";
+                
+                meters = [{ 
+                    id: id, 
+                    name: defaultName, 
+                    meterNumber: generateRandomDigits(12), 
+                    accountNumber: generateRandomDigits(8),
+                    address: "ডিফল্ট ঠিকানা",
+                    phone: "01XXXXXXXXX"
+                }];
+                
                 activeMeterId = id;
-                localStorage.setItem('desco_meters', JSON.stringify(meters));
-                localStorage.setItem('desco_active_meter_id', activeMeterId);
-                localStorage.setItem('desco_meterInfo', JSON.stringify(meterInfo));
+                meterInfo = meters[0];
             }
+            
+            // সাথে সাথে লোকাল স্টোরেজে সেভ করুন যাতে রিফ্রেশ করলে হারানো না যায়
+            localStorage.setItem('desco_meters', JSON.stringify(meters));
+            localStorage.setItem('desco_active_meter_id', activeMeterId);
+            localStorage.setItem('desco_meterInfo', JSON.stringify(meterInfo));
         }
+
+        // ডিসপ্লে আপডেট করুন
         updateMeterDisplay();
-        renderMeterSelector();
+        if (typeof renderMeterSelector === 'function') renderMeterSelector();
+        
     } catch (error) {
         console.error('মিটার তথ্য লোড করতে সমস্যা:', error);
     }
