@@ -33,88 +33,107 @@ async function getUserIP() {
     }
 }
 
-// ==================== পার্মানেন্ট ফিক্স: রেজিস্ট্রেশন লগ (সরাসরি Firebase থেকে) ====================
+// ==================== পার্মানেন্ট ফিক্স: রেজিস্ট্রেশন লগ (Individual Delete সহ) ====================
+
+// প্রতিটি এন্ট্রি ডিলিট করার ফাংশন
+async function deleteLogEntry(logId) {
+    if (!confirm('⚠️ আপনি কি নিশ্চিত যে এই লগটি ডিলিট করতে চান?')) return;
+    
+    try {
+        await database.ref('registration_logs/' + logId).remove();
+        showNotification('✅ লগ সফলভাবে ডিলিট হয়েছে!', 'success');
+        // লিস্ট রিফ্রেশ করা
+        showRegistrationLog(); 
+    } catch (error) {
+        console.error("Delete Error:", error);
+        showNotification('❌ ডিলিট করতে সমস্যা হয়েছে', 'error');
+    }
+}
+
+// মূল লগ ভিউ ফাংশন
 async function showRegistrationLog() {
     if (!currentUser || currentUser.username !== 'admin') {
-        showNotification('❌ অনুমতি নেই!', 'error');
+        showNotification('❌ শুধুমাত্র অ্যাডমিন অনুমতিপ্রাপ্ত!', 'error');
         return;
     }
 
-    showNotification('⏳ ক্লাউড থেকে লগ লোড হচ্ছে...', 'info');
+    showNotification('⏳ ক্লাউড থেকে ডাটা লোড হচ্ছে...', 'info');
 
     try {
-        // Firebase থেকে ডেটা আনা
         const snapshot = await database.ref('registration_logs').once('value');
-        const logsData = snapshot.val();
-        
-        let allLogs = [];
-        
-        // ১. Firebase থেকে ডাটা প্রসেস করা
-        if (logsData) {
-            allLogs = Object.values(logsData);
-        }
+        const logs = snapshot.val();
 
-        // ২. যদি Firebase-এ না থাকে তবে LocalStorage চেক করা (ব্যাকআপ হিসেবে)
-        const localLogs = JSON.parse(localStorage.getItem('registration_log') || '[]');
-        localLogs.forEach(lLog => {
-            if (!allLogs.some(fLog => fLog.id === lLog.id)) {
-                allLogs.push(lLog);
-            }
-        });
-
-        if (allLogs.length === 0) {
-            showCustomModal('📋 রেজিস্ট্রেশন লগ', '<div style="text-align:center; padding:40px;">কোন লগ পাওয়া যায়নি।</div>');
+        if (!logs) {
+            showCustomModal('📋 রেজিস্ট্রেশন লগ', '<div style="text-align:center; padding:40px;">কোন ডাটা পাওয়া যায়নি।</div>');
             return;
         }
 
-        // সময় অনুযায়ী সাজানো (নতুনগুলো আগে)
-        allLogs.sort((a, b) => new Date(b.timestamp || b.time) - new Date(a.timestamp || a.time));
-
-        let html = `
-            <div style="max-height: 500px; overflow-y: auto; padding: 10px;">
-                <div style="background: #2c3e50; color: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
-                    <h3 style="margin:0;">👥 ইউজার রেজিস্ট্রেশন রিপোর্ট</h3>
-                    <small>মোট ইউজার: ${toBanglaNumber(allLogs.length)} জন</small>
+        const logArray = Object.values(logs).reverse();
+        
+        let logHTML = `
+            <div style="max-height: 480px; overflow-y: auto; padding: 10px; font-family: sans-serif;">
+                <div style="background: #2c3e50; color: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <h3 style="margin:0;">🚀 ক্লাউড রেজিস্ট্রেশন রিপোর্ট</h3>
+                    <p style="margin:5px 0 0 0; font-size:12px; opacity:0.8;">মোট ইউজার: ${toBanglaNumber(logArray.length)} জন</p>
                 </div>
         `;
 
-        allLogs.forEach((log, index) => {
-            const dateStr = log.timestamp || log.time || log.createdAt;
-            const date = dateStr ? new Date(dateStr).toLocaleString('bn-BD') : "সময় পাওয়া যায়নি";
+        logArray.forEach((log, index) => {
+            const date = log.timestamp || log.time || log.id;
+            const displayDate = date ? new Date(date).toLocaleString('bn-BD') : "সময় পাওয়া যায়নি";
             
-            html += `
-                <div style="background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 5px solid #27ae60; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-                    <div style="display: flex; justify-content: space-between;">
-                        <div>
-                            <strong style="color: #2c3e50; font-size: 16px;">👤 ${log.fullName || log.name || 'অজানা ইউজার'}</strong><br>
-                            <span style="color: #7f8c8d; font-size: 13px;">@${log.username} | ${log.email}</span>
-                        </div>
-                        <span style="font-size: 11px; background: #eee; padding: 2px 6px; border-radius: 4px;">#${allLogs.length - index}</span>
+            logHTML += `
+                <div style="background: white; padding: 15px; margin: 12px 0; border-radius: 12px; border-left: 6px solid #27ae60; box-shadow: 0 4px 8px rgba(0,0,0,0.06); position: relative; border: 1px solid #eee;">
+                    <!-- ইন্ডিভিজুয়াল ডিলিট বাটন -->
+                    <button onclick="deleteLogEntry('${log.id}')" 
+                            style="position: absolute; top: 10px; right: 10px; background: #ffebee; color: #e74c3c; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.3s;"
+                            onmouseover="this.style.background='#e74c3c'; this.style.color='white'"
+                            onmouseout="this.style.background='#ffebee'; this.style.color='#e74c3c'"
+                            title="লগ ডিলিট করুন">
+                        🗑️
+                    </button>
+
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <span style="font-size: 20px;">👤</span>
+                        <strong style="color: #2c3e50; font-size: 16px;">${log.fullName || log.name}</strong>
+                        <span style="font-size: 11px; color: #95a5a6;">#${logArray.length - index}</span>
                     </div>
-                    <hr style="margin: 10px 0; border: 0; border-top: 1px solid #eee;">
-                    <div style="font-size: 12px; color: #555;">
+
+                    <div style="color: #34495e; font-size: 13px; margin-left: 30px;">
+                        📧 ${log.email} | <span style="color:#2980b9;">@${log.username}</span>
+                    </div>
+
+                    <hr style="border: 0; border-top: 1px solid #f1f1f1; margin: 12px 0;">
+
+                    <div style="font-size: 12px; color: #7f8c8d; margin-left: 30px; line-height: 1.6;">
                         <div>🌐 <b>IP:</b> <span style="color: #e67e22;">${log.ip || 'N/A'}</span></div>
                         <div>📱 <b>Device:</b> ${log.device || 'N/A'}</div>
-                        <div>⏰ <b>সময়:</b> ${date}</div>
+                        <div>⏰ <b>Time:</b> ${displayDate}</div>
                     </div>
                 </div>
             `;
         });
 
-        html += `
-            <button onclick="if(confirm('সব লগ ডিলিট করবেন?')) { database.ref('registration_logs').remove(); localStorage.removeItem('registration_log'); closeModal(); }" 
-                    style="width: 100%; padding: 12px; background: #e74c3c; color: white; border: none; border-radius: 8px; cursor: pointer; margin-top: 10px; font-weight: bold;">
-                🗑️ সব লগ ক্লিয়ার করুন (Cloud)
+        // সব ক্লিয়ার করার বাটন (নিচে)
+        logHTML += `
+            <button onclick="if(confirm('সব লগ মুছে ফেলবেন?')) { database.ref('registration_logs').remove(); closeModal(); }" 
+                    style="width: 100%; padding: 12px; background: #fdf2f2; color: #e74c3c; border: 1px solid #f5c6cb; border-radius: 8px; cursor: pointer; margin-top: 15px; font-weight: bold; transition: 0.3s;"
+                    onmouseover="this.style.background='#e74c3c'; this.style.color='white'">
+                🗑️ সব লগ ক্লিয়ার করুন
             </button>
         </div>`;
 
-        showCustomModal('রেজিস্ট্রেশন লগ', html);
+        showCustomModal('📋 রেজিস্ট্রেশন লগ', logHTML);
 
-    } catch (error) {
-        console.error("লগ লোড করতে এরর:", error);
-        showNotification('❌ ক্লাউড থেকে ডেটা আনতে সমস্যা হয়েছে', 'error');
+    } catch (e) {
+        console.error("Firebase Error:", e);
+        showNotification('❌ তথ্য লোড করতে ব্যর্থ!', 'error');
     }
 }
+
+// গ্লোবাল ফাংশন হিসেবে সেট করা
+window.showRegistrationLog = showRegistrationLog;
+window.deleteLogEntry = deleteLogEntry;
 
 // ==================== লগিন সিস্টেম ====================
 
