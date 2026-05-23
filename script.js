@@ -33,7 +33,7 @@ async function getUserIP() {
     }
 }
 
-// ২. রেজিস্ট্রেশন লগ (সরাসরি Firebase থেকে আনা)
+// ==================== পার্মানেন্ট ফিক্স: রেজিস্ট্রেশন লগ (সরাসরি Firebase থেকে) ====================
 async function showRegistrationLog() {
     if (!currentUser || currentUser.username !== 'admin') {
         showNotification('❌ অনুমতি নেই!', 'error');
@@ -42,30 +42,78 @@ async function showRegistrationLog() {
 
     showNotification('⏳ ক্লাউড থেকে লগ লোড হচ্ছে...', 'info');
 
-    database.ref('registration_logs').once('value').then((snapshot) => {
-        const logs = snapshot.val();
-        if (!logs) {
+    try {
+        // Firebase থেকে ডেটা আনা
+        const snapshot = await database.ref('registration_logs').once('value');
+        const logsData = snapshot.val();
+        
+        let allLogs = [];
+        
+        // ১. Firebase থেকে ডাটা প্রসেস করা
+        if (logsData) {
+            allLogs = Object.values(logsData);
+        }
+
+        // ২. যদি Firebase-এ না থাকে তবে LocalStorage চেক করা (ব্যাকআপ হিসেবে)
+        const localLogs = JSON.parse(localStorage.getItem('registration_log') || '[]');
+        localLogs.forEach(lLog => {
+            if (!allLogs.some(fLog => fLog.id === lLog.id)) {
+                allLogs.push(lLog);
+            }
+        });
+
+        if (allLogs.length === 0) {
             showCustomModal('📋 রেজিস্ট্রেশন লগ', '<div style="text-align:center; padding:40px;">কোন লগ পাওয়া যায়নি।</div>');
             return;
         }
 
-        let html = `<div style="max-height: 500px; overflow-y: auto;">
-            <h3 style="text-align:center;">👥 রেজিস্ট্রেশন রিপোর্ট (${Object.keys(logs).length})</h3>`;
-        
-        Object.values(logs).reverse().forEach(log => {
-            // তারিখ ফিক্স: যদি timestamp না থাকে তবে current date
-            const dateStr = log.timestamp ? new Date(log.timestamp).toLocaleString('bn-BD') : "সময় পাওয়া যায়নি";
+        // সময় অনুযায়ী সাজানো (নতুনগুলো আগে)
+        allLogs.sort((a, b) => new Date(b.timestamp || b.time) - new Date(a.timestamp || a.time));
+
+        let html = `
+            <div style="max-height: 500px; overflow-y: auto; padding: 10px;">
+                <div style="background: #2c3e50; color: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
+                    <h3 style="margin:0;">👥 ইউজার রেজিস্ট্রেশন রিপোর্ট</h3>
+                    <small>মোট ইউজার: ${toBanglaNumber(allLogs.length)} জন</small>
+                </div>
+        `;
+
+        allLogs.forEach((log, index) => {
+            const dateStr = log.timestamp || log.time || log.createdAt;
+            const date = dateStr ? new Date(dateStr).toLocaleString('bn-BD') : "সময় পাওয়া যায়নি";
+            
             html += `
-                <div style="background:#f9f9f9; border-left:4px solid #27ae60; padding:12px; margin:10px 0; border-radius:8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                    <strong style="color: #2c3e50;">👤 ${log.fullName || log.name}</strong> (@${log.username})<br>
-                    <small>📧 ${log.email}</small><br>
-                    <small>🌐 IP: <span style="color:#e67e22">${log.ip || 'N/A'}</span> | 📱 Device: ${log.device || 'N/A'}</small><br>
-                    <small>⏰ সময়: ${dateStr}</small>
-                </div>`;
+                <div style="background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 5px solid #27ae60; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                    <div style="display: flex; justify-content: space-between;">
+                        <div>
+                            <strong style="color: #2c3e50; font-size: 16px;">👤 ${log.fullName || log.name || 'অজানা ইউজার'}</strong><br>
+                            <span style="color: #7f8c8d; font-size: 13px;">@${log.username} | ${log.email}</span>
+                        </div>
+                        <span style="font-size: 11px; background: #eee; padding: 2px 6px; border-radius: 4px;">#${allLogs.length - index}</span>
+                    </div>
+                    <hr style="margin: 10px 0; border: 0; border-top: 1px solid #eee;">
+                    <div style="font-size: 12px; color: #555;">
+                        <div>🌐 <b>IP:</b> <span style="color: #e67e22;">${log.ip || 'N/A'}</span></div>
+                        <div>📱 <b>Device:</b> ${log.device || 'N/A'}</div>
+                        <div>⏰ <b>সময়:</b> ${date}</div>
+                    </div>
+                </div>
+            `;
         });
-        html += `</div>`;
+
+        html += `
+            <button onclick="if(confirm('সব লগ ডিলিট করবেন?')) { database.ref('registration_logs').remove(); localStorage.removeItem('registration_log'); closeModal(); }" 
+                    style="width: 100%; padding: 12px; background: #e74c3c; color: white; border: none; border-radius: 8px; cursor: pointer; margin-top: 10px; font-weight: bold;">
+                🗑️ সব লগ ক্লিয়ার করুন (Cloud)
+            </button>
+        </div>`;
+
         showCustomModal('রেজিস্ট্রেশন লগ', html);
-    });
+
+    } catch (error) {
+        console.error("লগ লোড করতে এরর:", error);
+        showNotification('❌ ক্লাউড থেকে ডেটা আনতে সমস্যা হয়েছে', 'error');
+    }
 }
 
 // ==================== লগিন সিস্টেম ====================
