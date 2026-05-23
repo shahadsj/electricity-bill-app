@@ -315,37 +315,35 @@ function handleLogin(event) {
 async function handleRegister(event) {
     event.preventDefault();
     
+    // ফর্ম থেকে ডেটা নেওয়া
+    const fullName = document.getElementById('fullName').value.trim();
+    const username = document.getElementById('regUsername').value.trim().toLowerCase();
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('regPassword').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+
+    if (password !== confirmPassword) {
+        showNotification('❌ পাসওয়ার্ড মিলছে না', 'error');
+        return;
+    }
+
+    // ইউজারনেম ইতিমধ্যে আছে কি না চেক
+    if (users.find(u => u.username === username)) {
+        showNotification('❌ এই ইউজারনেম ইতিমধ্যে ব্যবহৃত', 'error');
+        return;
+    }
+
+    // কোডটি একটি try-catch ব্লকের ভেতরে রাখা হলো যাতে সিনট্যাক্স এরর না আসে
     try {
-        const fullName = document.getElementById('fullName').value.trim();
-        const username = document.getElementById('regUsername').value.trim().toLowerCase();
-        const email = document.getElementById('email').value.trim();
-        const password = document.getElementById('regPassword').value;
-        const confirmPassword = document.getElementById('confirmPassword').value;
-
-        if (password !== confirmPassword) {
-            showNotification('❌ পাসওয়ার্ড মিলছে না', 'error');
-            return;
-        }
-
-        // ইউজারনেম চেক
-        if (users.find(u => u.username === username)) {
-            showNotification('❌ এই ইউজারনেম ইতিমধ্যে ব্যবহৃত', 'error');
-            return;
-        }
-
         showNotification('⏳ অ্যাকাউন্ট তৈরি হচ্ছে...', 'info');
 
-        const userIP = await getUserIP();
-        
         const newUser = {
             id: Date.now(),
             fullName: fullName,
             username: username,
             email: email,
-            password: btoa(password + 'desco_salt'), // Simple hashing
-            isActive: true, // এটি নিশ্চিত করতে হবে
-            ip: userIP,
-            device: navigator.platform,
+            password: btoa(password + 'desco_salt'),
+            isActive: true,
             timestamp: new Date().toISOString()
         };
 
@@ -353,19 +351,41 @@ async function handleRegister(event) {
         users.push(newUser);
         saveUsers();
 
-        // ২. Firebase-এ লগ এবং অ্যাকাউন্ট ব্যাকআপ পাঠানো
+        // ২. নতুন ইউজারের জন্য ডিফল্ট মিটার প্রোফাইল তৈরি
+        const defaultMeter = {
+            id: 'meter_' + Date.now(),
+            name: "K. M. Abu Bakkar Siddek (Shahed)", 
+            meterNumber: generateRandomDigits(12),   
+            accountNumber: generateRandomDigits(8),  
+            address: "ডিফল্ট ঠিকানা",
+            phone: "01XXXXXXXXX"
+        };
+
+        const initialMeterData = {
+            currentBalance: 0,
+            totalRecharge: 0,
+            totalExpended: 0,
+            transactions: [],
+            monthlyRecharges: [],
+            meters: [defaultMeter],
+            activeMeterId: defaultMeter.id,
+            meterInfo: defaultMeter,
+            lastUpdated: firebase.database.ServerValue.TIMESTAMP
+        };
+
+        // ৩. Firebase-এ সেভ করা
         if (typeof database !== 'undefined') {
             await database.ref('registration_logs/' + newUser.id).set(newUser);
-            // ঐচ্ছিক: ইউজার লিস্ট ক্লাউডে রাখা যাতে অন্য ব্রাউজার থেকেও লগিন করা যায়
-            await database.ref('users_backup/' + newUser.username).set({id: newUser.id}); 
+            await database.ref('meter_data/' + newUser.id).set(initialMeterData);
         }
         
-        showNotification('✅ অ্যাকাউন্ট তৈরি সফল! এখন লগইন করুন', 'success');
+        showNotification('✅ অ্যাকাউন্ট তৈরি সফল! লগইন করুন', 'success');
         showLoginForm();
 
     } catch (error) {
+        // try ব্লকের পর এই catch অংশটি থাকা বাধ্যতামূলক
         console.error("Registration Error:", error);
-        showNotification('❌ রেজিস্ট্রেশন ব্যর্থ হয়েছে!', 'error');
+        showNotification('❌ রেজিস্ট্রেশন করতে সমস্যা হয়েছে!', 'error');
     }
 }
 
@@ -15488,35 +15508,27 @@ document.addEventListener('DOMContentLoaded', function() {
 function startRealtimeSync(userId) {
     if (!userId || typeof database === 'undefined') return;
 
-    console.log("📡 রিয়েল-টাইম সিঙ্ক চালু হয়েছে... User ID:", userId);
     const dataRef = database.ref('meter_data/' + userId);
 
-    // .on('value') ব্যবহার করায় ক্লাউডে চেঞ্জ হওয়া মাত্রই এই ফাংশনটি অটো চলবে
     dataRef.on('value', (snapshot) => {
         const cloudData = snapshot.val();
+        
         if (cloudData) {
-            console.log("🔔 ক্লাউড থেকে আপডেট পাওয়া গেছে!");
-            
-            // ডাটা আপডেট
+            // ডাটা থাকলে লোড করো
             transactions = cloudData.transactions || [];
             monthlyRecharges = cloudData.monthlyRecharges || [];
-            currentBalance = parseFloat(cloudData.currentBalance) || 0;
-            totalRecharge = parseFloat(cloudData.totalRecharge) || 0;
-            totalExpended = parseFloat(cloudData.totalExpended) || 0;
-            lastDemandChargeMonth = cloudData.lastDemandChargeMonth || '';
-            meters = cloudData.meters || meters;
-            activeMeterId = cloudData.activeMeterId || activeMeterId;
-            settings = cloudData.settings || settings;
-
-            // লোকাল স্টোরেজ আপডেট (যাতে অফলাইনেও লেটেস্ট ডাটা থাকে)
-            saveData(); 
-
-            // UI আপডেট
-            updateBalanceDisplay();
-            updateMeterDisplay();
-            if (typeof loadTransactionReport === 'function') loadTransactionReport();
-            if (typeof updateProgressBar === 'function') updateProgressBar();
-            if (typeof updateUnitDisplay === 'function') updateUnitDisplay();
+            currentBalance = cloudData.currentBalance || 0;
+            totalRecharge = cloudData.totalRecharge || 0;
+            totalExpended = cloudData.totalExpended || 0;
+            meters = cloudData.meters || [];
+            activeMeterId = cloudData.activeMeterId || null;
+            meterInfo = cloudData.meterInfo || meterInfo;
+            
+            updateUI();
+        } else {
+            console.log("🆕 নতুন ইউজার, ডাটা তৈরি হচ্ছে...");
+            // যদি ভুলবশত রেজিস্ট্রেশনের সময় ডাটা তৈরি না হয়, এখানে আবার চেষ্টা করবে
+            // (ঐচ্ছিক: আপনি চাইলে handleRegister এর লজিক এখানেও রিপিট করতে পারেন)
         }
     });
 }
@@ -15879,3 +15891,11 @@ function applyGlobalTheme(name) {
 }
 
 window.applyGlobalTheme = applyGlobalTheme;
+
+function generateRandomDigits(length) {
+    let result = '';
+    for (let i = 0; i < length; i++) {
+        result += Math.floor(Math.random() * 10);
+    }
+    return result;
+}
