@@ -33,30 +33,54 @@ async function getUserIP() {
     }
 }
 
-// ==================== ফাইনাল ও কার্যকরী ভার্সন (এটিই শুধুমাত্র থাকবে) ====================
+// ==================== মাস্টার ডিলিট: লগ + ইউজার অ্যাকাউন্ট + মিটার ডাটা ====================
 
-// প্রতিটি এন্ট্রি ডিলিট করার ফাংশন
-async function deleteLogEntry(logId) {
-    if (!confirm('⚠️ আপনি কি নিশ্চিত যে এই লগটি ডিলিট করতে চান?')) return;
+async function deleteLogEntry(logId, username) {
+    const confirmMsg = `⚠️ সাবধান! আপনি কি "@${username}" ইউজারটিকে পুরোপুরি ডিলিট করতে চান?
+    
+এর ফলে:
+১. ইউজারের লগিন অ্যাকাউন্ট ডিলিট হবে।
+২. ইউজারের সব মিটার ডাটা ও ব্যালেন্স মুছে যাবে।
+৩. এটি আর ফিরে পাওয়া যাবে না।`;
+
+    if (!confirm(confirmMsg)) return;
     
     try {
+        showNotification('⏳ ইউজার ডিলিট করা হচ্ছে...', 'info');
+
+        // ১. Firebase থেকে রেজিস্ট্রেশন লগ ডিলিট
         await database.ref('registration_logs/' + logId).remove();
-        showNotification('✅ লগ সফলভাবে ডিলিট হয়েছে!', 'success');
-        showRegistrationLog(); // লিস্ট রিফ্রেশ করা
+
+        // ২. Firebase থেকে ওই ইউজারের সব মিটার ডাটা ডিলিট
+        await database.ref('meter_data/' + logId).remove();
+
+        // ৩. লোকাল ইউজার লিস্ট (users array) থেকে ডিলিট করা
+        if (typeof users !== 'undefined') {
+            const userIndex = users.findIndex(u => u.id == logId || u.username === username);
+            if (userIndex !== -1) {
+                users.splice(userIndex, 1);
+                // লোকাল স্টোরেজে সেভ করা যাতে সে আর লগইন করতে না পারে
+                localStorage.setItem('desco_users', JSON.stringify(users));
+            }
+        }
+
+        showNotification(`✅ ইউজার @${username} এবং তার সব ডাটা ডিলিট করা হয়েছে!`, 'success');
+        
+        // লিস্ট রিফ্রেশ করা
+        showRegistrationLog(); 
+        
     } catch (error) {
-        console.error("Delete Error:", error);
-        showNotification('❌ ডিলিট করতে সমস্যা হয়েছে', 'error');
+        console.error("Master Delete Error:", error);
+        showNotification('❌ ডিলিট করতে কারিগরি সমস্যা হয়েছে', 'error');
     }
 }
 
-// মূল লগ ভিউ ফাংশন (Firebase + Individual Delete)
+// আপডেট করা showRegistrationLog ফাংশন (ডিলিট ফাংশনে ইউজারনেম পাঠানোর জন্য)
 async function showRegistrationLog() {
     if (!currentUser || currentUser.username !== 'admin') {
         showNotification('❌ শুধুমাত্র অ্যাডমিন অনুমতিপ্রাপ্ত!', 'error');
         return;
     }
-
-    showNotification('⏳ ক্লাউড থেকে ডাটা লোড হচ্ছে...', 'info');
 
     try {
         const snapshot = await database.ref('registration_logs').once('value');
@@ -70,61 +94,47 @@ async function showRegistrationLog() {
         const logArray = Object.values(logs).reverse();
         
         let logHTML = `
-            <div style="max-height: 480px; overflow-y: auto; padding: 10px; font-family: sans-serif;">
-                <div style="background: #2c3e50; color: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                    <h3 style="margin:0;">🚀 ক্লাউড রেজিস্ট্রেশন রিপোর্ট</h3>
-                    <p style="margin:5px 0 0 0; font-size:12px; opacity:0.8;">মোট ইউজার: ${toBanglaNumber(logArray.length)} জন</p>
+            <div style="max-height: 480px; overflow-y: auto; padding: 10px;">
+                <div style="background: #c0392b; color: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center;">
+                    <h3 style="margin:0;">👑 অ্যাডমিন কন্ট্রোল প্যানেল</h3>
+                    <p style="margin:5px 0 0 0; font-size:12px;">এখান থেকে ইউজার ডিলিট করলে তার সব ডাটা মুছে যাবে</p>
                 </div>
         `;
 
-        logArray.forEach((log, index) => {
+        logArray.forEach((log) => {
             const date = log.timestamp || log.time || log.id;
-            const displayDate = date ? new Date(date).toLocaleString('bn-BD') : "সময় পাওয়া যায়নি";
+            const displayDate = date ? new Date(date).toLocaleString('bn-BD') : "N/A";
             
             logHTML += `
-                <div style="background: white; padding: 15px; margin: 12px 0; border-radius: 12px; border-left: 6px solid #27ae60; box-shadow: 0 4px 8px rgba(0,0,0,0.06); position: relative; border: 1px solid #eee;">
-                    <button onclick="deleteLogEntry('${log.id}')" 
-                            style="position: absolute; top: 10px; right: 10px; background: #ffebee; color: #e74c3c; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.3s;"
-                            onmouseover="this.style.background='#e74c3c'; this.style.color='white'"
-                            onmouseout="this.style.background='#ffebee'; this.style.color='#e74c3c'">
+                <div style="background: white; padding: 15px; margin: 12px 0; border-radius: 12px; border-left: 6px solid #e74c3c; box-shadow: 0 4px 8px rgba(0,0,0,0.06); position: relative; border: 1px solid #eee;">
+                    <!-- মাস্টার ডিলিট বাটন -->
+                    <button onclick="deleteLogEntry('${log.id}', '${log.username}')" 
+                            style="position: absolute; top: 10px; right: 10px; background: #ffebee; color: #e74c3c; border: 1px solid #ffcdd2; width: 35px; height: 35px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.3s;"
+                            title="ইউজারকে পুরোপুরি ডিলিট করুন">
                         🗑️
                     </button>
 
-                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                        <span style="font-size: 20px;">👤</span>
-                        <strong style="color: #2c3e50; font-size: 16px;">${log.fullName || log.name}</strong>
-                        <span style="font-size: 11px; color: #95a5a6;">#${logArray.length - index}</span>
+                    <div style="margin-bottom: 5px;">
+                        <strong style="color: #2c3e50; font-size: 16px;">👤 ${log.fullName || log.name}</strong>
+                        <span style="color: #c0392b; font-size: 12px; font-weight: bold; margin-left: 5px;">(@${log.username})</span>
                     </div>
-                    <div style="color: #34495e; font-size: 13px; margin-left: 30px;">
-                        📧 ${log.email} | <span style="color:#2980b9;">@${log.username}</span>
-                    </div>
-                    <hr style="border: 0; border-top: 1px solid #f1f1f1; margin: 12px 0;">
-                    <div style="font-size: 12px; color: #7f8c8d; margin-left: 30px; line-height: 1.6;">
-                        <div>🌐 <b>IP:</b> <span style="color: #e67e22;">${log.ip || 'N/A'}</span></div>
-                        <div>📱 <b>Device:</b> ${log.device || 'N/A'}</div>
-                        <div>⏰ <b>Time:</b> ${displayDate}</div>
+                    <div style="color: #34495e; font-size: 13px;">📧 ${log.email}</div>
+                    <hr style="border: 0; border-top: 1px solid #f1f1f1; margin: 10px 0;">
+                    <div style="font-size: 11px; color: #7f8c8d;">
+                        🌐 IP: ${log.ip || 'N/A'} | 📱 Device: ${log.device || 'N/A'}<br>
+                        ⏰ রেজিস্ট্রেশন: ${displayDate}
                     </div>
                 </div>
             `;
         });
 
-        logHTML += `
-            <button onclick="if(confirm('সব লগ মুছে ফেলবেন?')) { database.ref('registration_logs').remove(); closeModal(); }" 
-                    style="width: 100%; padding: 12px; background: #fdf2f2; color: #e74c3c; border: 1px solid #f5c6cb; border-radius: 8px; cursor: pointer; margin-top: 15px; font-weight: bold;">
-                🗑️ সব লগ ক্লিয়ার করুন
-            </button>
-        </div>`;
+        logHTML += `</div>`;
+        showCustomModal('📋 ইউজার ম্যানেজমেন্ট', logHTML);
 
-        showCustomModal('📋 রেজিস্ট্রেশন লগ', logHTML);
     } catch (e) {
-        console.error("Firebase Error:", e);
         showNotification('❌ তথ্য লোড করতে ব্যর্থ!', 'error');
     }
 }
-
-// গ্লোবাল এক্সেস নিশ্চিত করা
-window.showRegistrationLog = showRegistrationLog;
-window.deleteLogEntry = deleteLogEntry;
 
 // ==================== লগিন সিস্টেম ====================
 
