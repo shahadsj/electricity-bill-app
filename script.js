@@ -16025,3 +16025,70 @@ function generateRandomDigits(length) {
     }
     return result;
 }
+
+// ==================== সরাসরি গ্লোবাল স্কোপে সেভ ফাংশন = :
+window.saveMeterInfo = function() {
+    console.log("⏳ মিটার সেভ ফাংশন কল হয়েছে...");
+    
+    try {
+        // ইনপুট ফিল্ড থেকে ভ্যালু সংগ্রহ
+        const nameInput = document.getElementById('editMeterName');
+        const numInput = document.getElementById('editMeterNumber');
+        const accInput = document.getElementById('editAccountNumber');
+
+        if (!nameInput || !numInput || !accInput) {
+            console.error("❌ ইনপুট ফিল্ড খুঁজে পাওয়া যায়নি!");
+            return;
+        }
+
+        const newName = nameInput.value.trim();
+        const newMeterNumber = numInput.value.trim();
+        const newAccountNumber = accInput.value.trim();
+
+        if (!newName || !newMeterNumber || !newAccountNumber) {
+            alert('❌ সব তথ্য পূরণ করুন!');
+            return;
+        }
+
+        // গ্লোবাল ভেরিয়েবল আপডেট
+        if (typeof meterInfo !== 'undefined') {
+            meterInfo.name = newName;
+            meterInfo.meterNumber = newMeterNumber;
+            meterInfo.accountNumber = newAccountNumber;
+        }
+
+        // বর্তমান মিটার লিস্ট আপডেট
+        if (typeof meters !== 'undefined' && typeof activeMeterId !== 'undefined') {
+            const index = meters.findIndex(m => m.id === activeMeterId);
+            if (index !== -1) {
+                meters[index].name = newName;
+                meters[index].meterNumber = newMeterNumber;
+                meters[index].accountNumber = newAccountNumber;
+            }
+        }
+
+        // স্টোরেজ আপডেট
+        localStorage.setItem('desco_meterInfo', JSON.stringify(meterInfo));
+        localStorage.setItem('desco_meters', JSON.stringify(meters));
+
+        // ফায়ারবেস সিঙ্ক (যদি ফাংশন থাকে)
+        if (typeof autoSyncToFirebase === 'function') {
+            autoSyncToFirebase();
+        }
+
+        // UI আপডেট
+        if (typeof updateMeterDisplay === 'function') {
+            updateMeterDisplay();
+        }
+
+        // ডিসপ্লে মোডে ফেরত যাওয়া
+        document.getElementById('meterDisplay').style.display = 'block';
+        document.getElementById('meterEdit').style.display = 'none';
+
+        showNotification('✅ মিটার তথ্য আপডেট করা হয়েছে!', 'success');
+
+    } catch (e) {
+        console.error("Critical Save Error:", e);
+        alert("সেভ করতে ভুল হয়েছে: " + e.message);
+    }
+};
