@@ -915,5 +915,12 @@
 
 <script src="pwa.js"></script>
 <link rel="manifest" href="/electricity-bill-app/manifest.json">
+<script>
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/electricity-bill-app/service-worker.js')
+        .then(reg => console.log('✅ Service Worker registered:', reg.scope))
+        .catch(err => console.log('❌ Service Worker error:', err));
+}
+</script>
 </body>
 </html>
