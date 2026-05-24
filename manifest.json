@@ -2,7 +2,7 @@
   "name": "বিদ্যুৎ বিল ক্যালকুলেটর",
   "short_name": "বিল ক্যালকুলেটর",
   "description": "আপনার বিদ্যুৎ বিল ক্যালকুলেশন এবং ট্র্যাকিং অ্যাপ",
-  "start_url": "./",
+  "start_url": "index.html",
   "display": "standalone",
   "background_color": "#2c3e50",
   "theme_color": "#3498db",
@@ -13,6 +13,12 @@
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
     }
   ],
   "screenshots": [
@@ -20,15 +26,13 @@
       "src": "./screenshots/desktop-screenshot.png",
       "sizes": "1280x720",
       "type": "image/png",
-      "form_factor": "wide",
-      "label": "বিদ্যুৎ বিল ক্যালকুলেটর ডেস্কটপ ভিউ"
+      "form_factor": "wide"
     },
     {
       "src": "./screenshots/mobile-screenshot.png",
       "sizes": "720x1280",
       "type": "image/png",
-      "form_factor": "narrow",
-      "label": "বিদ্যুৎ বিল ক্যালকুলেটর মোবাইল ভিউ"
+      "form_factor": "narrow"
     }
   ]
 }
