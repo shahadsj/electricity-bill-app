@@ -3820,3 +3820,17 @@ input:focus, select:focus, textarea:focus {
     }
 }
 
+/* পুরনো অকেজো সামারি সেকশন পুরোপুরি হাইড করার জন্য */
+#reportTab > div:not(#attractiveSummaryBar):not(.search-container):not(#transactionList):not(#monthlySummaryList):has(div[style*="border-left"]) {
+    display: none !important;
+}
+
+/* আপনার রিপোর্টের ভেতর যেখানেই পুরনো ব্র্যাকেট স্টাইল (০ ভ্যালু) পাবে সেটি মুছে দিবে */
+div[style*="border-left: 3px solid #3498db"]:not(#attractiveSummaryBar *) {
+    display: none !important;
+}
+
+/* "সামারি" লেখা টাইটেলটি হাইড করা */
+h4:contains("সামারি"), h4:has(text:contains("সামারি")) {
+    display: none !important;
+}

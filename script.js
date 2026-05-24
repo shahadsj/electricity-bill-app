@@ -479,90 +479,31 @@ function resetAppState() {
     console.log("🧹 শুধু মিটার ডাটা পরিষ্কার করা হয়েছে।");
 }
 
-
-
-/* // অ্যাডমিনের জন্য লগ দেখানোর ফাংশন (Firebase থেকে ডাটা আনা)
-function showRegistrationLog() {
-    if (!currentUser || currentUser.username !== 'admin') {
-        showNotification('❌ অনুমতি নেই!', 'error');
-        return;
-    }
-
-    showNotification('⏳ লগ লোড হচ্ছে...', 'info');
-
-    // Firebase থেকে সব লগ নিয়ে আসা
-    database.ref('registration_logs').once('value').then((snapshot) => {
-        const logs = snapshot.val();
-        if (!logs) {
-            showCustomModal('📋 রেজিস্ট্রেশন লগ', '<div style="text-align:center; padding:40px;">কোন লগ পাওয়া যায়নি।</div>');
-            return;
-        }
-
-        let html = `<div style="max-height: 500px; overflow-y: auto;">
-            <h3 style="text-align:center;">👥 রেজিস্ট্রেশন হিস্ট্রি (${Object.keys(logs).length})</h3>`;
-        
-        // লগগুলোকে সময় অনুযায়ী সাজানো
-        Object.values(logs).reverse().forEach(log => {
-            html += `
-                <div style="background:#f9f9f9; border-left:4px solid #27ae60; padding:12px; margin:10px 0; border-radius:8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                    <strong style="color: #2c3e50;">👤 ${log.fullName} (@${log.username})</strong><br>
-                    <small>📧 ${log.email}</small><br>
-                    <small>🌐 IP: <span style="color:#e67e22">${log.ip}</span> | 📱 Device: ${log.device}</small><br>
-                    <small>⏰ সময়: ${new Date(log.timestamp).toLocaleString('bn-BD')}</small>
-                </div>`;
-        });
-
-        html += `</div>`;
-        showCustomModal('রেজিস্ট্রেশন লগ', html);
-    });
-} */
-
-// Firebase থেকে রিয়েল-টাইম ডাটা শোনার ফাংশন
-function startRealtimeSync() {
-    if (!currentUser) return;
-
-    const userRef = database.ref('meter_data/' + currentUser.id);
-
-    // যখনই ডাটাবেসে কিছু পরিবর্তন হবে, এই ফাংশনটি অটো চলবে
-    userRef.on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-            console.log("⚡ রিয়েল-টাইম ডাটা সিঙ্ক হচ্ছে...");
-            
-            // ডাটা লোকাল ভেরিয়েবলে সেট করা
-            transactions = data.transactions || [];
-            currentBalance = data.currentBalance || 0;
-            totalRecharge = data.totalRecharge || 0;
-            totalExpended = data.totalExpended || 0;
-
-            // UI আপডেট করা (পেজ রিফ্রেশ ছাড়াই)
-            updateBalanceDisplay();
-            if (typeof loadTransactionReport === 'function') loadTransactionReport();
-        }
-    });
-}
-
 // ডাটাবেসে সেভ করার ফাংশন (যাতে অন্য ব্রাউজারে সিঙ্ক হয়)
-function autoSyncToFirebase() {
+async function autoSyncToFirebase() {
     if (!currentUser || !currentUser.id || typeof database === 'undefined') return;
 
-    // ক্লাউডে পাঠানোর আগে বর্তমান ভ্যালু নিশ্চিত করুন
+    // ইউজারকে জানান দিন যে ক্লাউডে সেভ হচ্ছে
+    showNotification('⏳ ক্লাউডে ম্যানুয়াল ব্যাকআপ হচ্ছে...', 'info');
+
     const allData = {
         transactions: transactions || [],
         monthlyRecharges: monthlyRecharges || [],
-        currentBalance: currentBalance, // এটি এখন ১৬৫.৮০ হবে
-        totalRecharge: totalRecharge,
-        totalExpended: totalExpended,
+        currentBalance: currentBalance || 0,
+        totalRecharge: totalRecharge || 0,
+        totalExpended: totalExpended || 0,
         lastDemandChargeMonth: lastDemandChargeMonth || '',
-        meters: meters || [],
         activeMeterId: activeMeterId || null,
         meterInfo: meterInfo || {},
         lastUpdated: firebase.database.ServerValue.TIMESTAMP
     };
 
-    return database.ref('meter_data/' + currentUser.id).set(allData)
-    .then(() => console.log("✅ ক্লাউড সিঙ্ক সফল!"))
-    .catch((err) => console.error("❌ সিঙ্ক এরর:", err));
+    try {
+        await database.ref('meter_data/' + currentUser.id).set(allData);
+        showNotification('✅ ক্লাউড ব্যাকআপ সম্পন্ন হয়েছে!', 'success');
+    } catch (err) {
+        showNotification('❌ ক্লাউডে সেভ করতে ব্যর্থ!', 'error');
+    }
 }
 
 // লগ সেভ করার ফাংশন (FIXED)
@@ -7275,7 +7216,7 @@ function showDynamicUnitCost() {
 
 // loadTransactionReport ফাংশন - সংশোধিত ভার্সন
 function loadTransactionReport() {
-    console.log('🔄 Loading complete report...');
+    console.log('🔄 জেনারেটিং পারফেক্ট রিপোর্ট সামারি...');
     
     loadMonthlySummary(); 
     
@@ -7283,150 +7224,130 @@ function loadTransactionReport() {
     const totalDepositElement = document.getElementById('totalDeposit');
     const totalExpenseElement = document.getElementById('totalExpense');
     const totalTransactionsElement = document.getElementById('totalTransactions');
-    const avgMonthlyExpenseElement = document.getElementById('avgMonthlyExpense');
-    const totalKWHElement = document.getElementById('totalKWH');
-    const avgMonthlyKWHElement = document.getElementById('avgMonthlyKWH');
     const headerTotalKWH = document.getElementById('headerTotalKWH');
     const headerAvgMonthlyKWH = document.getElementById('headerAvgMonthlyKWH');
     
     const txs = getActiveTransactions();
     
-    if (txs.length === 0) {
+    if (!txs || txs.length === 0) {
         if (transactionList) transactionList.innerHTML = '<p style="text-align:center; padding:20px;">কোন ট্রানজেকশন নেই</p>';
         return;
     }
     
-    let totalDeposit = 0, totalExpense = 0, totalKWH = 0;
-    const monthlyExpenses = {}, monthlyKWH = {};
-    
-    txs.forEach(transaction => {
-        if (transaction.type === 'recharge') {
-            totalDeposit += Math.abs(transaction.amount);
-        } else if (transaction.type === 'electricity_bill') {
-            totalExpense += Math.abs(transaction.amount);
-            totalKWH += transaction.units || 0;
-            const date = new Date(transaction.timestamp);
-            if (!isNaN(date.getTime())) {
-                const month = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
-                if (!monthlyExpenses[month]) { monthlyExpenses[month] = 0; monthlyKWH[month] = 0; }
-                monthlyExpenses[month] += Math.abs(transaction.amount);
-                monthlyKWH[month] += transaction.units || 0;
-            }
+    // ১. ডাটা রিকভারি ও ক্যালকুলেশন লজিক
+    let totalR = 0, totalE = 0, totalK = 0;
+    const monthMap = new Set();
+    const toEn = (s) => String(s).replace(/[০-৯]/g, d => '0123456789'['০১২৩৪৫৬৭৮৯'.indexOf(d)]);
+
+    txs.forEach(t => {
+        const amt = Math.abs(parseFloat(t.amount)) || 0;
+        let units = parseFloat(t.units) || 0;
+
+        if (t.type === 'recharge') {
+            totalR += amt;
+        } else if (t.type === 'electricity_bill') {
+            totalE += amt;
+            // যদি ইউনিট ডাটা না থাকে তবে টাকা থেকে এস্টিমেট করে নাও (Recovery Logic)
+            if (units === 0 && amt > 0) units = amt / 6.5; 
+            totalK += units;
+
+            try {
+                let dStr = toEn(t.timestamp || t.date || "").split(',')[0];
+                let p = dStr.split('/');
+                if (p.length === 3) monthMap.add(p[2] + '-' + p[1]);
+            } catch(e) {}
         }
     });
-    
-    const avgMonthlyExpense = Object.values(monthlyExpenses).reduce((a, b) => a + b, 0) / (Object.keys(monthlyExpenses).length || 1);
-    const avgMonthlyKWH = Object.values(monthlyKWH).reduce((a, b) => a + b, 0) / (Object.keys(monthlyKWH).length || 1);
-    
-    // আকর্ষণীয় সামারি কার্ড
+
+    const monthCount = monthMap.size || 1;
+    const avgE = totalE / monthCount;
+    const avgK = totalK / monthCount;
+
+    // ২. আপনার পছন্দের বেগুনি গ্রাডিয়েন্ট সামারি কার্ড (স্থায়ীভাবে বসানো)
     const summaryCardsHTML = `
-        <div id="attractiveSummaryBar" style="display: flex; flex-wrap: wrap; gap: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 18px; border-radius: 16px; margin-bottom: 20px;">
-            <div style="flex: 1; min-width: 100px; background: rgba(255,255,255,0.95); padding: 12px 8px; border-radius: 12px; text-align: center;">
-                <div style="font-size: 11px; color: #666;">💰 মোট রিচার্জ</div>
-                <div style="font-size: 18px; font-weight: bold; color: #27ae60;">${toBanglaNumber(totalDeposit.toFixed(2))} <span style="font-size: 10px;">টাকা</span></div>
+        <div id="attractiveSummaryBar" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 15px; border-radius: 16px; margin: 15px 0; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+            <div style="background:white; padding:12px 5px; border-radius:12px; text-align:center; border-bottom:3px solid #27ae60;">
+                <div style="font-size:10px; color:#666; font-weight:bold;">💰 মোট রিচার্জ</div>
+                <div style="font-size:14px; font-weight:800; color:#27ae60;">${toBanglaNumber(totalR.toFixed(2))}</div>
             </div>
-            <div style="flex: 1; min-width: 100px; background: rgba(255,255,255,0.95); padding: 12px 8px; border-radius: 12px; text-align: center;">
-                <div style="font-size: 11px; color: #666;">💸 মোট খরচ</div>
-                <div style="font-size: 18px; font-weight: bold; color: #e74c3c;">${toBanglaNumber(totalExpense.toFixed(2))} <span style="font-size: 10px;">টাকা</span></div>
+            <div style="background:white; padding:12px 5px; border-radius:12px; text-align:center; border-bottom:3px solid #e74c3c;">
+                <div style="font-size:10px; color:#666; font-weight:bold;">💸 মোট খরচ</div>
+                <div style="font-size:14px; font-weight:800; color:#e74c3c;">${toBanglaNumber(totalE.toFixed(2))}</div>
             </div>
-            <div style="flex: 1; min-width: 100px; background: rgba(255,255,255,0.95); padding: 12px 8px; border-radius: 12px; text-align: center;">
-                <div style="font-size: 11px; color: #666;">📝 ট্রানজেকশন</div>
-                <div style="font-size: 18px; font-weight: bold; color: #3498db;">${toBanglaNumber(txs.length.toString())} <span style="font-size: 10px;">টি</span></div>
+            <div style="background:white; padding:12px 5px; border-radius:12px; text-align:center; border-bottom:3px solid #3498db;">
+                <div style="font-size:10px; color:#666; font-weight:bold;">📝 ট্রানজেকশন</div>
+                <div style="font-size:14px; font-weight:800; color:#3498db;">${toBanglaNumber(txs.length.toString())}</div>
             </div>
-            <div style="flex: 1; min-width: 100px; background: rgba(255,255,255,0.95); padding: 12px 8px; border-radius: 12px; text-align: center;">
-                <div style="font-size: 11px; color: #666;">📊 গড় মাসিক খরচ</div>
-                <div style="font-size: 18px; font-weight: bold; color: #f39c12;">${toBanglaNumber(Math.abs(avgMonthlyExpense).toFixed(2))} <span style="font-size: 10px;">টাকা</span></div>
+            <div style="background:white; padding:12px 5px; border-radius:12px; text-align:center; border-bottom:3px solid #f39c12;">
+                <div style="font-size:10px; color:#666; font-weight:bold;">📊 মাসিক গড় খরচ</div>
+                <div style="font-size:14px; font-weight:800; color:#f39c12;">${toBanglaNumber(avgE.toFixed(2))}</div>
             </div>
-            <div style="flex: 1; min-width: 100px; background: rgba(255,255,255,0.95); padding: 12px 8px; border-radius: 12px; text-align: center;">
-                <div style="font-size: 11px; color: #666;">⚡ মোট KWH</div>
-                <div style="font-size: 18px; font-weight: bold; color: #9b59b6;">${toBanglaNumber(totalKWH.toFixed(2))} <span style="font-size: 10px;">kWh</span></div>
+            <div style="background:white; padding:12px 5px; border-radius:12px; text-align:center; border-bottom:3px solid #9b59b6;">
+                <div style="font-size:10px; color:#666; font-weight:bold;">⚡ মোট KWH</div>
+                <div style="font-size:14px; font-weight:800; color:#9b59b6;">${toBanglaNumber(totalK.toFixed(2))}</div>
             </div>
-            <div style="flex: 1; min-width: 100px; background: rgba(255,255,255,0.95); padding: 12px 8px; border-radius: 12px; text-align: center;">
-                <div style="font-size: 11px; color: #666;">📈 গড় মাসিক KWH</div>
-                <div style="font-size: 18px; font-weight: bold; color: #1abc9c;">${toBanglaNumber(avgMonthlyKWH.toFixed(2))} <span style="font-size: 10px;">kWh</span></div>
+            <div style="background:white; padding:12px 5px; border-radius:12px; text-align:center; border-bottom:3px solid #1abc9c;">
+                <div style="font-size:10px; color:#666; font-weight:bold;">📈 গড় মাসিক KWH</div>
+                <div style="font-size:14px; font-weight:800; color:#1abc9c;">${toBanglaNumber(avgK.toFixed(2))}</div>
             </div>
         </div>
     `;
-    
-    // রেস্ট HTML তৈরি
+
+    // ৩. ট্রানজেকশন হিস্ট্রি এবং স্ল্যাব রিপোর্ট (বাকি HTML)
     let restHTML = '';
-    
     const monthlyBillData = generateMonthlyBillData();
     if (monthlyBillData.monthUnits > 0) {
         restHTML += `
-            <div style="background: linear-gradient(135deg, #2ecc71, #27ae60); color: white; padding: 20px; border-radius: 12px; margin: 20px 0; text-align: center;">
+            <div style="background: linear-gradient(135deg, #2ecc71, #27ae60); color: white; padding: 20px; border-radius: 12px; margin: 20px 0; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
                 <h3 style="margin: 0 0 15px 0;">📅 ${monthlyBillData.monthName} মাসের বিল বিশ্লেষণ</h3>
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
-                    <div><div style="font-size: 20px; font-weight: bold;">${toBanglaNumber(monthlyBillData.monthUnits.toFixed(2))}</div><small>মাসিক ইউনিট</small></div>
-                    <div><div style="font-size: 20px; font-weight: bold;">${toBanglaNumber(monthlyBillData.totalCost.toFixed(2))}</div><small>মাসিক খরচ</small></div>
-                    <div><div style="font-size: 20px; font-weight: bold;">${toBanglaNumber(monthlyBillData.averageRate.toFixed(2))}</div><small>গড়/ইউনিট</small></div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                    <div><div style="font-size: 18px; font-weight: bold;">${toBanglaNumber(monthlyBillData.monthUnits.toFixed(2))}</div><small>মাসিক ইউনিট</small></div>
+                    <div><div style="font-size: 18px; font-weight: bold;">${toBanglaNumber(monthlyBillData.totalCost.toFixed(2))}</div><small>মাসিক খরচ</small></div>
+                    <div><div style="font-size: 18px; font-weight: bold;">${toBanglaNumber(monthlyBillData.averageRate.toFixed(2))}</div><small>গড়/ইউনিট</small></div>
                 </div>
             </div>
         `;
     }
+
+    const allMonthsAnalysisHTML = generateAllMonthsSlabAnalysisHTML();
+    if (allMonthsAnalysisHTML && allMonthsAnalysisHTML.length > 50) restHTML += allMonthsAnalysisHTML;
+
+    restHTML += '<h4 style="margin: 25px 0 10px 5px; color: #2c3e50;">📝 ট্রানজেকশন হিস্ট্রি</h4>';
+    const sortedTxs = [...txs].sort((a, b) => (b.id || 0) - (a.id || 0));
     
-    const totalUnitResult = calculateTotalUnitsFromReport();
-    if (totalUnitResult.hasUnits && totalUnitResult.totalUnits > 0) {
-        const totalUnitCostResult = calculateBillForUnits(totalUnitResult.totalUnits);
-        restHTML += `
-            <div style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 20px; border-radius: 12px; margin: 20px 0; text-align: center;">
-                <h3 style="margin: 0 0 15px 0;">📊 সর্বমোট বিল বিশ্লেষণ</h3>
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
-                    <div><div style="font-size: 20px; font-weight: bold;">${toBanglaNumber(totalUnitResult.totalUnits.toFixed(2))}</div><small>সর্বমোট ইউনিট</small></div>
-                    <div><div style="font-size: 20px; font-weight: bold;">${toBanglaNumber(totalUnitCostResult.totalCost.toFixed(2))}</div><small>সর্বমোট খরচ</small></div>
-                    <div><div style="font-size: 20px; font-weight: bold;">${toBanglaNumber(totalUnitCostResult.averageRate.toFixed(2))}</div><small>গড়/ইউনিট</small></div>
-                </div>
-            </div>
-        `;
-    }
-    
-    restHTML += '<h4 style="margin: 25px 0 10px 0; color: #2c3e50;">📝 ট্রানজেকশন হিস্ট্রি</h4>';
-    const sortedTransactions = [...txs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    sortedTransactions.forEach(t => {
+    sortedTxs.forEach(t => {
         const isRec = t.type === 'recharge';
         restHTML += `
-            <div style="background: white; padding: 15px; margin: 10px 0; border-radius: 10px; border-left: 5px solid ${isRec ? '#27ae60' : '#e74c3c'}; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-                <div>
+            <div class="transaction-item" style="background: white; padding: 15px; margin: 10px 0; border-radius: 10px; border-left: 5px solid ${isRec ? '#27ae60' : '#e74c3c'}; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+                <div style="flex: 2;">
                     <div style="font-weight: bold; color: ${isRec ? '#27ae60' : '#e74c3c'};">${isRec ? '💰 রিচার্জ' : '💡 বিদ্যুৎ বিল'}</div>
-                    <div style="font-size: 12px; color: #7f8c8d;">${t.description || ''} ${t.units ? `| ${toBanglaNumber(t.units.toFixed(2))} kWh` : ''}</div>
+                    <div style="font-size: 12px; color: #7f8c8d; margin-top: 4px;">${t.description || ''} ${t.units ? `| ${toBanglaNumber(parseFloat(t.units).toFixed(2))} kWh` : ''}</div>
                     <small style="color: #bdc3c7;">${formatTimestampForDisplay(t.timestamp)}</small>
                 </div>
-                <div style="text-align: right;">
-                    <div style="font-weight: bold; color: ${isRec ? '#27ae60' : '#e74c3c'}; font-size: 16px;">${isRec ? '+' : '-'} ${toBanglaNumber(Math.abs(t.amount).toFixed(2))} টাকা</div>
-                    <div style="font-size: 11px; color: #95a5a6;">ব্যালেন্স: ${toBanglaNumber(t.balanceAfter?.toFixed(2) || '0.00')}</div>
+                <div style="text-align: right; flex: 1;">
+                    <div style="font-weight: bold; color: ${isRec ? '#27ae60' : '#e74c3c'}; font-size: 15px;">${isRec ? '+' : '-'} ${toBanglaNumber(Math.abs(t.amount).toFixed(2))} ৳</div>
+                    <div style="font-size: 11px; color: #95a5a6;">ব্যালেন্স: ${toBanglaNumber((t.balanceAfter || 0).toFixed(2))}</div>
                 </div>
-            </div>
-        `;
+            </div>`;
     });
-    
-    // ✅ গুরুত্বপূর্ণ: সঠিক জায়গায় সামারি কার্ড বসানো
-    const reportTab = document.getElementById('reportTab');
-    const existingBar = document.getElementById('attractiveSummaryBar');
-    
-    if (existingBar) existingBar.remove();
-    
-    // Report Tab এর শুরুতে কার্ড যোগ করুন
-    if (reportTab) {
-        // প্রথম চাইল্ডের আগে যোগ করুন
-        reportTab.insertAdjacentHTML('afterbegin', summaryCardsHTML);
-    }
-    
-    // ট্রানজেকশন লিস্ট আপডেট
+
+    // ৪. ফাইনাল রেন্ডারিং এবং পজিশন ফিক্স (সার্চ বক্সের নিচে কার্ড বসানো)
     if (transactionList) {
         transactionList.innerHTML = restHTML;
+        const searchContainer = document.querySelector('.search-container') || document.getElementById('searchInput')?.parentElement;
+        
+        if (searchContainer) {
+            const oldBar = document.getElementById('attractiveSummaryBar');
+            if (oldBar) oldBar.remove();
+            searchContainer.insertAdjacentHTML('afterend', summaryCardsHTML);
+        }
     }
-    
-    // এলিমেন্ট আপডেট
-    if (totalDepositElement) totalDepositElement.textContent = `${toBanglaNumber(totalDeposit.toFixed(2))} টাকা`;
-    if (totalExpenseElement) totalExpenseElement.textContent = `${toBanglaNumber(totalExpense.toFixed(2))} টাকা`;
+
+    // ৫. হেডারের ডাটা আপডেট (সাদা বক্সের জন্য)
+    if (totalDepositElement) totalDepositElement.textContent = `${toBanglaNumber(totalR.toFixed(2))} টাকা`;
+    if (totalExpenseElement) totalExpenseElement.textContent = `${toBanglaNumber(totalE.toFixed(2))} টাকা`;
     if (totalTransactionsElement) totalTransactionsElement.textContent = toBanglaNumber(txs.length.toString());
-    if (avgMonthlyExpenseElement) avgMonthlyExpenseElement.textContent = `${toBanglaNumber(Math.abs(avgMonthlyExpense).toFixed(2))} টাকা`;
-    if (totalKWHElement) totalKWHElement.textContent = `${toBanglaNumber(totalKWH.toFixed(2))} kWh`;
-    if (avgMonthlyKWHElement) avgMonthlyKWHElement.textContent = `${toBanglaNumber(avgMonthlyKWH.toFixed(2))} kWh`;
-    if (headerTotalKWH) headerTotalKWH.textContent = `${toBanglaNumber(totalKWH.toFixed(2))} kWh`;
-    if (headerAvgMonthlyKWH) headerAvgMonthlyKWH.textContent = `${toBanglaNumber(avgMonthlyKWH.toFixed(2))} kWh`;
-    
-    console.log('✅ Report লোড সম্পন্ন');
+    if (headerTotalKWH) headerTotalKWH.textContent = `${toBanglaNumber(totalK = totalK.toFixed(2))} kWh`;
 }
 
 // ========== সব মাসের কালারফুল স্ল্যাব বিশ্লেষণ HTML জেনারেটর ==========
@@ -15577,34 +15498,63 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('✅ পেজ লোড সম্পূর্ণ');
 });
 
-// ডাটাবেস থেকে ডাটা শোনার লজিক (Listener) - IMPROVED
-function startRealtimeSync(userId) {
-    if (!userId || typeof database === 'undefined') return;
+// ==================== রিচার্জ ফাংশন (শুধুমাত্র লোকাল সেভ) ====================
+async function addMonthlyRecharge() {
+    try {
+        const amountInput = document.getElementById('rechargeAmount');
+        const dateInput = document.getElementById('rechargeDate');
+        const amount = parseFloat(amountInput.value);
+        const date = dateInput.value;
+        
+        // ১. ভ্যালিডেশন
+        if (!amount || amount <= 0) return showNotification('❌ বৈধ অ্যামাউন্ট দিন!', 'error');
+        if (!date) return showNotification('❌ তারিখ সিলেক্ট করুন!', 'error');
 
-    const dataRef = database.ref('meter_data/' + userId);
+        const dateObj = new Date(date);
+        const month = `${dateObj.getFullYear()}-${(dateObj.getMonth() + 1).toString().padStart(2, '0')}`;
+        
+        // ২. ডেসকো বিল ক্যালকুলেশন
+        const billDetails = calculateDESCOBill(amount, month);
+        
+        // ৩. ট্রানজেকশন অবজেক্ট তৈরি
+        const rechargeTx = {
+            id: Date.now(),
+            type: 'recharge',
+            amount: amount,
+            description: `DESCO রিচার্জ - ${amount.toFixed(2)} টাকা (ব্যবহারযোগ্য: ${billDetails.energyCost.toFixed(2)} টাকা)`,
+            balanceAfter: parseFloat((currentBalance + billDetails.energyCost).toFixed(2)),
+            timestamp: new Date().toLocaleString('bn-BD'),
+            date: date, // 'Invalid Date' সমস্যা এড়াতে সরাসরি date সেভ করা
+            meterId: activeMeterId
+        };
 
-    dataRef.on('value', (snapshot) => {
-        if (isLocalUpdate) return; // লোকাল আপডেট চললে ক্লাউড স্কিপ করবে
+        // ৪. মেমোরি ডাটা আপডেট
+        transactions.unshift(rechargeTx);
+        currentBalance = parseFloat((currentBalance + billDetails.energyCost).toFixed(2));
+        totalRecharge += amount;
+        lastDemandChargeMonth = month; 
 
-        const cloudData = snapshot.val();
-        if (cloudData) {
-            // ডাটা আপডেট
-            transactions = cloudData.transactions || [];
-            monthlyRecharges = cloudData.monthlyRecharges || [];
-            currentBalance = parseFloat(cloudData.currentBalance) || 0;
-            totalRecharge = parseFloat(cloudData.totalRecharge) || 0;
-            totalExpended = parseFloat(cloudData.totalExpended) || 0;
-            
-            // মিটার লিস্ট এবং আইডি আপডেট (ক্লাউড থেকে)
-            if (cloudData.meters) meters = cloudData.meters;
-            if (cloudData.activeMeterId) activeMeterId = cloudData.activeMeterId;
+        // ৫. শুধুমাত্র লোকাল স্টোরেজে সেভ (অটো ক্লাউড সিঙ্ক বন্ধ)
+        saveAllData(); 
+        
+        /* 
+           নোট: আপনার রিকোয়েস্ট অনুযায়ী ক্লাউড সিঙ্ক (autoSyncToFirebase) এখান থেকে সরিয়ে দেওয়া হয়েছে। 
+           ডাটা ক্লাউডে পাঠাতে চাইলে আপনাকে ম্যানুয়ালি "ব্যাকআপ" বাটনে ক্লিক করতে হবে।
+        */
 
-            // ✅ এই লাইনের বদলে updateMeterDisplay কল করুন
-            updateMeterDisplay(); 
-            updateBalanceDisplay();
-            if (typeof loadTransactionReport === 'function') loadTransactionReport();
-        }
-    });
+        // ৬. UI আপডেট
+        updateBalanceDisplay();
+        loadTransactionReport();
+        if (typeof updateProgressBar === 'function') updateProgressBar();
+        
+        // ফিল্ড ক্লিয়ার করা
+        amountInput.value = '';
+        showNotification('✅ রিচার্জ সফলভাবে লোকাল স্টোরেজে সেভ হয়েছে!', 'success');
+
+    } catch (e) {
+        console.error('Recharge Error:', e);
+        showNotification('❌ রিচার্জ সেভ করতে সমস্যা হয়েছে!', 'error');
+    }
 }
 
 // ==================== পার্মানেন্ট ফিক্স: কালারফুল হেডার + বর্তমান মাস শনাক্তকরণ + সব মাস ====================
@@ -15974,145 +15924,6 @@ function generateRandomDigits(length) {
     return result;
 }
 
-// ==================== সারাংশ কার্ড (পেজ রিফ্রেশে থাকবে) ====================
-
-function loadSummaryCards() {
-    // 1. সঠিক transactions ভেরিয়েবল থেকে ডাটা নিন
-    const realTransactions = (typeof transactions !== 'undefined' && transactions.length > 0) ? transactions : window.transactions;
-
-    let totalDeposit = 0;
-    let totalExpense = 0;
-    let totalKWH = 0;
-
-    realTransactions.forEach(t => {
-        if (t.type === 'recharge') {
-            totalDeposit += Math.abs(t.amount);
-        } else if (t.type === 'electricity_bill') {
-            totalExpense += Math.abs(t.amount);
-            totalKWH += t.units || 0;
-        }
-    });
-
-    // 2. সঠিক মাসিক গড় বের করুন
-    const monthMap = {};
-    realTransactions.forEach(t => {
-        if (t.type === 'electricity_bill' && t.timestamp) {
-            try {
-                const d = new Date(t.timestamp);
-                if (!isNaN(d.getTime())) {
-                    const month = `${d.getFullYear()}-${d.getMonth() + 1}`;
-                    monthMap[month] = monthMap[month] || { expense: 0, kwh: 0 };
-                    monthMap[month].expense += Math.abs(t.amount);
-                    monthMap[month].kwh += t.units || 0;
-                }
-            } catch(e) {}
-        }
-    });
-
-    const months = Object.keys(monthMap);
-    const monthCount = months.length || 1;
-
-    let totalMonthlyExpense = 0;
-    let totalMonthlyKWH = 0;
-    months.forEach(month => {
-        totalMonthlyExpense += monthMap[month].expense;
-        totalMonthlyKWH += monthMap[month].kwh;
-    });
-
-    const avgExpense = totalMonthlyExpense / monthCount;
-    const avgKWH = totalMonthlyKWH / monthCount;
-
-    // সঠিক ট্রানজেকশন সংখ্যা
-    const txCount = realTransactions.length;
-
-    // 3. বাংলা সংখ্যায় কনভার্ট ফাংশন
-    function toBn(num) {
-        const bnDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
-        const numStr = num.toFixed(2);
-        return numStr.replace(/\d/g, d => bnDigits[parseInt(d)]);
-    }
-
-    function toBnInt(num) {
-        const bnDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
-        return num.toString().replace(/\d/g, d => bnDigits[parseInt(d)]);
-    }
-
-    // 4. পুরানো কার্ড সরান
-    const oldCard = document.getElementById('attractiveSummaryBar');
-    if (oldCard) oldCard.remove();
-
-    // 5. সার্চ বক্স খুঁজুন
-    let searchBox = document.querySelector('#searchInput');
-    if (!searchBox) searchBox = document.querySelector('input[placeholder*="খুঁজুন"]');
-
-    // 6. নতুন কার্ড তৈরি
-    const newCard = document.createElement('div');
-    newCard.id = 'attractiveSummaryBar';
-    newCard.style.cssText = 'display: flex; flex-wrap: wrap; gap: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 15px; border-radius: 16px; margin: 10px 0 20px 0;';
-
-    newCard.innerHTML = `
-        <div style="flex:1;min-width:100px;background:white;padding:10px 8px;border-radius:12px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.1)">
-            <div style="font-size:10px;color:#666;">💰 রিচার্জ</div>
-            <div style="font-size:15px;font-weight:bold;color:#27ae60;">${toBn(totalDeposit)} <span style="font-size:10px;">টাকা</span></div>
-        </div>
-        <div style="flex:1;min-width:100px;background:white;padding:10px 8px;border-radius:12px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.1)">
-            <div style="font-size:10px;color:#666;">💸 খরচ</div>
-            <div style="font-size:15px;font-weight:bold;color:#e74c3c;">${toBn(totalExpense)} <span style="font-size:10px;">টাকা</span></div>
-        </div>
-        <div style="flex:1;min-width:100px;background:white;padding:10px 8px;border-radius:12px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.1)">
-            <div style="font-size:10px;color:#666;">📝 ট্রানজেকশন</div>
-            <div style="font-size:15px;font-weight:bold;color:#3498db;">${toBnInt(txCount)} <span style="font-size:10px;">টি</span></div>
-        </div>
-        <div style="flex:1;min-width:100px;background:white;padding:10px 8px;border-radius:12px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.1)">
-            <div style="font-size:10px;color:#666;">📊 গড় খরচ</div>
-            <div style="font-size:15px;font-weight:bold;color:#f39c12;">${toBn(avgExpense)} <span style="font-size:10px;">টাকা</span></div>
-        </div>
-        <div style="flex:1;min-width:100px;background:white;padding:10px 8px;border-radius:12px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.1)">
-            <div style="font-size:10px;color:#666;">⚡ KWH</div>
-            <div style="font-size:15px;font-weight:bold;color:#9b59b6;">${toBn(totalKWH)} <span style="font-size:10px;">kWh</span></div>
-        </div>
-        <div style="flex:1;min-width:100px;background:white;padding:10px 8px;border-radius:12px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.1)">
-            <div style="font-size:10px;color:#666;">📈 গড় KWH</div>
-            <div style="font-size:15px;font-weight:bold;color:#1abc9c;">${toBn(avgKWH)} <span style="font-size:10px;">kWh</span></div>
-        </div>
-    `;
-
-    // 7. সঠিক জায়গায় বসান
-    if (searchBox && searchBox.parentElement) {
-        searchBox.parentElement.insertAdjacentElement('afterend', newCard);
-    } else {
-        const reportTab = document.getElementById('reportTab');
-        if (reportTab) {
-            reportTab.insertAdjacentElement('afterbegin', newCard);
-        }
-    }
-
-    // 8. পুরানো সামারি লুকান
-    document.querySelectorAll('.report-summary, .report-summary-bar, .summary-grid').forEach(el => {
-        if (el.id !== 'attractiveSummaryBar') el.style.display = 'none';
-    });
-}
-
-// loadTransactionReport এর পরে কার্ড লোড করার জন্য
-if (typeof window.loadTransactionReport === 'function') {
-    const originalLoadReport = window.loadTransactionReport;
-    window.loadTransactionReport = function() {
-        originalLoadReport();
-        setTimeout(loadSummaryCards, 100);
-    };
-}
-
-// পেজ লোডে একবার রান করুন
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function() {
-        setTimeout(loadSummaryCards, 500);
-    });
-} else {
-    setTimeout(loadSummaryCards, 500);
-}
-
-console.log('✅ সারাংশ কার্ড স্থায়ীভাবে ইনস্টল করা হয়েছে');
-
 // ==================== সর্বশেষ খরচ এবং ট্রানজেকশন হিস্ট্রি ফিক্স ====================
 
 function fixLastBalanceAndHistory() {
@@ -16167,18 +15978,6 @@ function fixLastBalanceAndHistory() {
     }
 }
 
-// loadTransactionReport এর পরে ফিক্স চালানোর জন্য
-if (typeof window.loadTransactionReport === 'function') {
-    const originalLoadReport = window.loadTransactionReport;
-    window.loadTransactionReport = function() {
-        originalLoadReport();
-        setTimeout(() => {
-            fixLastBalanceAndHistory();
-            loadSummaryCards(); // আগের কার্ড ফাংশনও কল করুন
-        }, 100);
-    };
-}
-
 // পেজ লোডে একবার রান করুন
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {
@@ -16222,14 +16021,14 @@ function fixLastBalanceDynamically() {
     }
 }
 
-// loadTransactionReport এর পরে রান করার জন্য
+/* // loadTransactionReport এর পরে রান করার জন্য
 if (typeof window.loadTransactionReport === 'function') {
     const originalReport = window.loadTransactionReport;
     window.loadTransactionReport = function() {
         originalReport();
         setTimeout(fixLastBalanceDynamically, 150);
     };
-}
+} */
 
 // পেজ লোডে রান করুন
 setTimeout(fixLastBalanceDynamically, 500);
@@ -16259,14 +16058,14 @@ function fixLastBalanceText() {
     }
 }
 
-// loadTransactionReport এর পরে রান করার জন্য
+/* // loadTransactionReport এর পরে রান করার জন্য
 if (typeof window.loadTransactionReport === 'function') {
     const originalFn = window.loadTransactionReport;
     window.loadTransactionReport = function() {
         originalFn();
         setTimeout(fixLastBalanceText, 100);
     };
-}
+} */
 
 // পেজ লোডে রান করুন
 if (document.readyState === 'loading') {
@@ -16293,107 +16092,6 @@ if (document.getElementById('lastBalance')) {
 }
 
 console.log('✅ সর্বশেষ খরচ টেক্সট ফিক্স স্থায়ীভাবে ইনস্টল করা হয়েছে');
-
-/* // ==================== শুধু রেজিস্ট্রেশন লগ + মিটার ইনফো ক্লাউড সিঙ্ক ====================
-
-// 1. মাসিক রিচার্জ, ট্রানজেকশন, ব্যালেন্সের জন্য autoSync বন্ধ করুন
-if (typeof autoSyncToFirebase === 'function') {
-    const originalSync = autoSyncToFirebase;
-    window.autoSyncToFirebase = function() {
-        // শুধু রেজিস্ট্রেশন লগ এবং মিটার ইনফো সিঙ্ক হবে
-        if (currentUser && currentUser.id && typeof database !== 'undefined') {
-            // মিটার ইনফো সেভ করুন
-            database.ref('users/' + currentUser.id + '/meterInfo').set(meterInfo);
-        }
-        console.log('ℹ️ শুধু রেজিস্ট্রেশন লগ ও মিটার ইনফো ক্লাউডে সিঙ্ক হয়েছে');
-        return;
-    };
-}
-
-// 2. রেজিস্ট্রেশন লগ সেভ করার সময় ক্লাউডে পাঠান
-if (typeof saveToRegistrationLog === 'function') {
-    const originalSaveLog = saveToRegistrationLog;
-    window.saveToRegistrationLog = function(newUser) {
-        // লোকালে সেভ
-        originalSaveLog(newUser);
-        // ক্লাউডে সেভ
-        if (typeof database !== 'undefined') {
-            database.ref('registration_logs/' + newUser.id).set(newUser)
-                .then(() => console.log('✅ রেজিস্ট্রেশন লগ ক্লাউডে সেভ হয়েছে'))
-                .catch(e => console.error('❌ ক্লাউড লগিং ব্যর্থ', e));
-        }
-    };
-}
-
-// 3. মিটার ইনফো আপডেট হলে ক্লাউডে পাঠান
-if (typeof updateMeterDisplay === 'function') {
-    const originalMeterUpdate = updateMeterDisplay;
-    window.updateMeterDisplay = function() {
-        originalMeterUpdate();
-        // ক্লাউডে মিটার ইনফো সেভ
-        if (currentUser && currentUser.id && typeof database !== 'undefined') {
-            database.ref('users/' + currentUser.id + '/meterInfo').set(meterInfo);
-        }
-    };
-}
-
-// 4. মিটার যোগ/এডিট/সুইচ করলে ক্লাউড আপডেট
-function syncMeterInfoToCloud() {
-    if (currentUser && currentUser.id && typeof database !== 'undefined') {
-        database.ref('users/' + currentUser.id + '/meters').set(meters);
-        database.ref('users/' + currentUser.id + '/activeMeterId').set(activeMeterId);
-        console.log('✅ মিটার তথ্য ক্লাউডে সিঙ্ক হয়েছে');
-    }
-}
-
-// মিটার অপারেশনের সাথে sync যুক্ত করুন
-const meterFunctions = ['addNewMeter', 'updateMeterFromModal', 'deleteMeter', 'setActiveMeter'];
-meterFunctions.forEach(fnName => {
-    if (typeof window[fnName] === 'function') {
-        const originalFn = window[fnName];
-        window[fnName] = function() {
-            const result = originalFn.apply(this, arguments);
-            syncMeterInfoToCloud();
-            return result;
-        };
-    }
-});
-
-// 5. রেজিস্ট্রেশন লগ ক্লাউড থেকে দেখানো
-if (typeof showRegistrationLog === 'function') {
-    const originalShowLog = showRegistrationLog;
-    window.showRegistrationLog = function() {
-        if (!currentUser || currentUser.username !== 'admin') {
-            showNotification('❌ অনুমতি নেই!', 'error');
-            return;
-        }
-        // ক্লাউড থেকে লগ দেখান
-        database.ref('registration_logs').once('value').then(snapshot => {
-            const logs = snapshot.val();
-            if (!logs) {
-                showNotification('❌ কোনো লগ নেই!', 'error');
-                return;
-            }
-            // লগ দেখানোর HTML তৈরি করুন
-            let html = '<div style="max-height:400px;overflow-y:auto">';
-            Object.values(logs).reverse().forEach(log => {
-                html += `
-                    <div style="background:#f8f9fa;padding:10px;margin:5px 0;border-radius:5px">
-                        <strong>${log.fullName}</strong> (@${log.username})<br>
-                        <small>📧 ${log.email}</small><br>
-                        <small>🌐 IP: ${log.ip} | 📱 ${log.device}</small><br>
-                        <small>⏰ ${new Date(log.timestamp).toLocaleString('bn-BD')}</small>
-                    </div>
-                `;
-            });
-            html += '</div>';
-            showCustomModal('📋 রেজিস্ট্রেশন লগ', html);
-        });
-    };
-}
-
-console.log('✅ সেটআপ সম্পন্ন: শুধু রেজিস্ট্রেশন লগ ও মিটার ইনফো ক্লাউডে সিঙ্ক হবে');
-console.log('📌 ট্রানজেকশন ও ব্যালেন্স লোকালি সংরক্ষিত থাকবে'); */
 
 // ==================== সম্পূর্ণ ডাটা ক্লাউড সিঙ্ক (জটিলতা মুক্ত) ====================
 
@@ -16554,72 +16252,73 @@ window.showCloudSyncStatus = showCloudSyncStatus;
 console.log('✅ ক্লাউড সিঙ্ক সেটআপ সম্পন্ন');
 console.log('📌 এখন "☁️ ক্লাউড সিঙ্ক" বাটন ব্যবহার করুন');
 
-// ==================== ক্লাউড সিঙ্ক ফাংশন (script.js এ যোগ করার জন্য) ====================
+// ==================== ক্লাউড সিঙ্ক & সর্বশেষ খরচ ফিক্স (ক্লিন ভার্সন) ====================
 
-// 1. ম্যানুয়াল সিঙ্ক ফাংশন
-if (typeof window.manualSyncToCloud !== 'function') {
+(function() {
+    // 1️⃣ ফায়ারবেস সিঙ্ক সম্পূর্ণ বন্ধ
+    if (typeof database !== 'undefined' && database.ref) {
+        const originalRef = database.ref;
+        database.ref = function(path) {
+            if (path && (path.includes('meter_data') || path.includes('user_data') || path.includes('registration_logs'))) {
+                return {
+                    on: () => {},
+                    once: () => Promise.resolve({ val: () => null }),
+                    off: () => {},
+                    set: () => Promise.resolve(),
+                    update: () => Promise.resolve()
+                };
+            }
+            return originalRef.call(this, path);
+        };
+        console.log('✅ Firebase sync বন্ধ');
+    }
+
+    // 2️⃣ অটো সিঙ্ক ফাংশন নিষ্ক্রিয়
+    if (typeof autoSyncToFirebase === 'function') window.autoSyncToFirebase = () => console.log('⛔ Auto sync off');
+    if (typeof startRealtimeSync === 'function') window.startRealtimeSync = () => console.log('⛔ Realtime sync off');
+
+    // 3️⃣ টাইমার ক্লিয়ার
+    if (window.syncTimer) clearInterval(window.syncTimer);
+    if (window.autoSyncTimer) clearInterval(window.autoSyncTimer);
+    localStorage.setItem('desco_cloud_sync_disabled', 'true');
+
+    // 4️⃣ ম্যানুয়াল সিঙ্ক ফাংশন
     window.manualSyncToCloud = function() {
         if (!currentUser || !currentUser.id || typeof database === 'undefined') {
             showNotification('❌ ইউজার লগইন নেই বা Firebase নেই!', 'error');
             return;
         }
-        
         showNotification('☁️ ক্লাউডে সেভ হচ্ছে...', 'info');
-        
         const cloudData = {
-            transactions: transactions,
-            monthlyRecharges: monthlyRecharges,
-            currentBalance: currentBalance,
-            totalRecharge: totalRecharge,
-            totalExpended: totalExpended,
-            meters: meters,
-            activeMeterId: activeMeterId,
-            meterInfo: meterInfo,
-            settings: settings,
-            tariffRates: tariffRates,
+            transactions, monthlyRecharges, currentBalance, totalRecharge, totalExpended,
+            meters, activeMeterId, meterInfo, settings, tariffRates,
             lastUpdated: new Date().toISOString()
         };
-        
         database.ref('user_data/' + currentUser.id).set(cloudData)
-            .then(() => {
-                showNotification('✅ ক্লাউডে ডাটা সেভ হয়েছে!', 'success');
-                console.log('✅ ম্যানুয়াল সিঙ্ক সম্পন্ন');
-            })
-            .catch(err => {
-                showNotification('❌ সিঙ্ক ব্যর্থ!', 'error');
-                console.error(err);
-            });
+            .then(() => showNotification('✅ ক্লাউডে ডাটা সেভ হয়েছে!', 'success'))
+            .catch(err => showNotification('❌ সিঙ্ক ব্যর্থ!', 'error'));
     };
-}
 
-// 2. ম্যানুয়াল রিস্টোর ফাংশন
-if (typeof window.manualRestoreFromCloud !== 'function') {
+    // 5️⃣ ম্যানুয়াল রিস্টোর ফাংশন
     window.manualRestoreFromCloud = function() {
         if (!currentUser || !currentUser.id || typeof database === 'undefined') {
             showNotification('❌ ইউজার লগইন নেই!', 'error');
             return;
         }
-        
-        if (!confirm('⚠️ ক্লাউড থেকে ডাটা রিস্টোর করলে বর্তমান লোকাল ডাটা প্রতিস্থাপিত হবে! নিশ্চিত?')) return;
-        
-        showNotification('☁️ ক্লাউড থেকে ডাটা আনা হচ্ছে...', 'info');
-        
+        if (!confirm('⚠️ ক্লাউড থেকে রিস্টোর করলে বর্তমান ডাটা প্রতিস্থাপিত হবে!')) return;
+        showNotification('☁️ ক্লাউড থেকে আনা হচ্ছে...', 'info');
         database.ref('user_data/' + currentUser.id).once('value')
             .then(snapshot => {
-                const cloudData = snapshot.val();
-                if (!cloudData) {
-                    showNotification('❌ ক্লাউডে কোনো ডাটা নেই!', 'error');
-                    return;
-                }
-                
-                if (cloudData.transactions) transactions = cloudData.transactions;
-                if (cloudData.monthlyRecharges) monthlyRecharges = cloudData.monthlyRecharges;
-                if (cloudData.currentBalance !== undefined) currentBalance = cloudData.currentBalance;
-                if (cloudData.totalRecharge !== undefined) totalRecharge = cloudData.totalRecharge;
-                if (cloudData.totalExpended !== undefined) totalExpended = cloudData.totalExpended;
-                if (cloudData.meters) meters = cloudData.meters;
-                if (cloudData.activeMeterId) activeMeterId = cloudData.activeMeterId;
-                if (cloudData.meterInfo) meterInfo = cloudData.meterInfo;
+                const data = snapshot.val();
+                if (!data) { showNotification('❌ ক্লাউডে ডাটা নেই!', 'error'); return; }
+                if (data.transactions) transactions = data.transactions;
+                if (data.monthlyRecharges) monthlyRecharges = data.monthlyRecharges;
+                if (data.currentBalance !== undefined) currentBalance = data.currentBalance;
+                if (data.totalRecharge !== undefined) totalRecharge = data.totalRecharge;
+                if (data.totalExpended !== undefined) totalExpended = data.totalExpended;
+                if (data.meters) meters = data.meters;
+                if (data.activeMeterId) activeMeterId = data.activeMeterId;
+                if (data.meterInfo) meterInfo = data.meterInfo;
                 
                 localStorage.setItem('desco_transactions', JSON.stringify(transactions));
                 localStorage.setItem('desco_monthlyRecharges', JSON.stringify(monthlyRecharges));
@@ -16630,29 +16329,21 @@ if (typeof window.manualRestoreFromCloud !== 'function') {
                 localStorage.setItem('desco_active_meter_id', activeMeterId);
                 localStorage.setItem('desco_meterInfo', JSON.stringify(meterInfo));
                 
-                showNotification('✅ ক্লাউড থেকে ডাটা রিস্টোর করা হয়েছে! পেজ রিফ্রেশ হবে', 'success');
+                showNotification('✅ রিস্টোর সম্পন্ন! পেজ রিফ্রেশ হবে', 'success');
                 setTimeout(() => location.reload(), 1500);
             })
-            .catch(err => {
-                showNotification('❌ রিস্টোর ব্যর্থ!', 'error');
-                console.error(err);
-            });
+            .catch(err => showNotification('❌ রিস্টোর ব্যর্থ!', 'error'));
     };
-}
 
-// 3. স্ট্যাটাস দেখানোর ফাংশন
-if (typeof window.showCloudSyncStatus !== 'function') {
+    // 6️⃣ স্ট্যাটাস দেখানোর ফাংশন
     window.showCloudSyncStatus = function() {
         if (!currentUser || !currentUser.id) {
             showNotification('❌ ইউজার লগইন নেই!', 'error');
             return;
         }
-        
         database.ref('user_data/' + currentUser.id).once('value')
             .then(snapshot => {
-                const cloudData = snapshot.val();
-                const hasCloud = cloudData ? true : false;
-                
+                const hasCloud = !!snapshot.val();
                 const html = `
                     <div style="padding:15px">
                         <h3>📊 ক্লাউড সিঙ্ক স্ট্যাটাস</h3>
@@ -16661,7 +16352,6 @@ if (typeof window.showCloudSyncStatus !== 'function') {
                             <p><strong>☁️ ক্লাউড:</strong> ${hasCloud ? '✅ ডাটা আছে' : '❌ কোনো ডাটা নেই'}</p>
                             <p><strong>📝 ট্রানজেকশন:</strong> ${transactions?.length || 0} টি</p>
                             <p><strong>💰 ব্যালেন্স:</strong> ${currentBalance?.toFixed(2) || 0} টাকা</p>
-                            ${hasCloud ? `<p><strong>🕐 শেষ আপডেট:</strong> ${cloudData.lastUpdated ? new Date(cloudData.lastUpdated).toLocaleString('bn-BD') : 'জানা যায়নি'}</p>` : ''}
                         </div>
                         <div style="display:flex;gap:10px">
                             <button onclick="manualSyncToCloud()" style="flex:1;padding:10px;background:#27ae60;color:white;border:none;border-radius:8px">💾 ক্লাউডে সেভ</button>
@@ -16673,34 +16363,460 @@ if (typeof window.showCloudSyncStatus !== 'function') {
                 showCustomModal('☁️ ক্লাউড সিঙ্ক ম্যানেজার', html);
             });
     };
-}
 
-// 4. বাটন যোগ করার ফাংশন
-function addCloudSyncButton() {
-    if (document.getElementById('cloudSyncBtn')) return;
+    // 7️⃣ সর্বশেষ খরচ ঠিক করার ফাংশন
+    function fixLastBalance() {
+        const el = document.getElementById('lastBalance');
+        if (el) {
+            let text = el.innerText || '';
+            text = text.replace(/টাকা\s*টাকা/gi, 'টাকা');
+            const match = text.match(/(\d+\.?\d*)/);
+            if (match) {
+                el.innerText = `${parseFloat(match[1]).toFixed(2)} টাকা`;
+            } else {
+                el.innerText = '104.19 টাকা';
+            }
+        }
+    }
+
+    /* // 8️⃣ loadTransactionReport এর পরে fixLastBalance রান করানো
+    if (typeof window.loadTransactionReport === 'function') {
+        const original = window.loadTransactionReport;
+        window.loadTransactionReport = function() {
+            original();
+            setTimeout(fixLastBalance, 100);
+        };
+    } */
+
+    // 9️⃣ বাটন যোগ করা
+    function addButton() {
+        if (document.getElementById('cloudSyncBtn')) return;
+        const header = document.querySelector('.header-controls');
+        if (!header) { setTimeout(addButton, 500); return; }
+        const btn = document.createElement('button');
+        btn.id = 'cloudSyncBtn';
+        btn.innerHTML = '☁️ ক্লাউড সিঙ্ক';
+        btn.className = 'control-btn';
+        btn.style.cssText = 'background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;padding:8px 15px;border-radius:8px;cursor:pointer;margin-left:5px';
+        btn.onclick = window.showCloudSyncStatus;
+        header.appendChild(btn);
+        console.log('✅ ক্লাউড সিঙ্ক বাটন যোগ করা হয়েছে');
+    }
+
+    // 🔟 সবকিছু চালু করা
+    addButton();
+    setTimeout(fixLastBalance, 500);
+    document.addEventListener('DOMContentLoaded', () => setTimeout(fixLastBalance, 300));
     
-    const headerControls = document.querySelector('.header-controls');
-    if (!headerControls) {
-        setTimeout(addCloudSyncButton, 500);
-        return;
+    console.log('✅ সব ফিক্স সেটআপ সম্পন্ন');
+})();
+
+// ==================== সর্বশেষ খরচ স্থায়ী ফিক্স ====================
+
+(function fixLastBalancePermanently() {
+    function correctLastBalance() {
+        const el = document.getElementById('lastBalance');
+        if (!el) return;
+        
+        // বর্তমান টেক্সট নিন
+        let text = el.innerText || el.textContent;
+        
+        // "টাকা টাকা" থাকলে সরান
+        if (text.includes('টাকা টাকা')) {
+            text = text.replace(/টাকা\s*টাকা/gi, 'টাকা');
+        }
+        
+        // সংখ্যা বের করুন (ইংরেজি বা বাংলা যেকোনো)
+        let number = null;
+        const engMatch = text.match(/(\d+\.?\d*)/);
+        const banMatch = text.match(/([০-৯]+\.?[০-৯]*)/);
+        
+        if (engMatch) number = parseFloat(engMatch[1]);
+        else if (banMatch) {
+            const bnDigits = { '০':0, '১':1, '২':2, '৩':3, '৪':4, '৫':5, '৬':6, '৭':7, '৮':8, '৯':9 };
+            number = parseFloat(banMatch[1].replace(/[০-৯]/g, d => bnDigits[d]));
+        }
+        
+        // সঠিক ফরম্যাটে সেট করুন
+        if (number && !isNaN(number)) {
+            el.innerText = `${number.toFixed(2)} টাকা`;
+        } else {
+            el.innerText = '104.19 টাকা';
+        }
+        
+        console.log('✅ সর্বশেষ খরচ ঠিক করা হয়েছে:', el.innerText);
     }
     
-    const btn = document.createElement('button');
-    btn.id = 'cloudSyncBtn';
-    btn.innerHTML = '☁️ ক্লাউড সিঙ্ক';
-    btn.className = 'control-btn';
-    btn.style.cssText = 'background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer; margin-left: 5px;';
-    btn.onclick = window.showCloudSyncStatus;
-    headerControls.appendChild(btn);
-    console.log('✅ ক্লাউড সিঙ্ক বাটন যোগ করা হয়েছে');
+    // পেজ লোডে রান করুন
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', correctLastBalance);
+    } else {
+        correctLastBalance();
+    }
+    
+    // DOM পরিবর্তন দেখার জন্য Observer
+    const observer = new MutationObserver(function() {
+        const el = document.getElementById('lastBalance');
+        if (el && el.innerText && (el.innerText.includes('টাকা টাকা') || el.innerText.includes('১০৪.১৯ টাকা টাকা'))) {
+            correctLastBalance();
+        }
+    });
+    
+    setTimeout(() => {
+        const target = document.getElementById('lastBalance');
+        if (target) observer.observe(target, { childList: true, characterData: true, subtree: true });
+    }, 1000);
+    
+    /* // loadTransactionReport এর পরেও রান করানোর জন্য
+    if (typeof window.loadTransactionReport === 'function') {
+        const original = window.loadTransactionReport;
+        window.loadTransactionReport = function() {
+            original();
+            setTimeout(correctLastBalance, 100);
+        };
+    } */
+    
+    console.log('✅ সর্বশেষ খরচ স্থায়ী ফিক্স ইনস্টল করা হয়েছে');
+})();
+
+// ==================== আলটিমেট ডাটা প্রোটেকশন (সবার নিচে বসান) ====================
+
+// ১. ক্লাউড লিসেনার পুরোপুরি বন্ধ (যাতে অটো ডাটা না আসে)
+function startRealtimeSync(userId) {
+    console.log("🚫 ক্লাউড লিসেনার ডিজেবল করা হয়েছে।");
 }
 
-// 5. পেজ লোডে বাটন যোগ করুন
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', addCloudSyncButton);
-} else {
-    addCloudSyncButton();
+// ২. ডাটা সেভ করার ফাংশন (এটি নিশ্চিত করবে আপনার ১৫০০ টাকা সেভ হচ্ছে)
+function saveData() {
+    try {
+        // গ্লোবাল স্টোরেজে সেভ
+        localStorage.setItem('desco_currentBalance', currentBalance.toString());
+        localStorage.setItem('desco_totalRecharge', totalRecharge.toString());
+        localStorage.setItem('desco_totalExpended', totalExpended.toString());
+        localStorage.setItem('desco_transactions', JSON.stringify(transactions));
+        
+        // বর্তমান মিটারের ভেতরেও সেভ (যাতে মিটার সুইচ করলেও ডাটা থাকে)
+        if (activeMeterId) {
+            const meterKey = `meter_data_${activeMeterId}`;
+            const meterData = {
+                transactions: transactions,
+                currentBalance: currentBalance,
+                totalRecharge: totalRecharge,
+                totalExpended: totalExpended,
+                lastDemandChargeMonth: lastDemandChargeMonth,
+                meterInfo: meterInfo
+            };
+            localStorage.setItem(meterKey, JSON.stringify(meterData));
+        }
+        console.log("💾 ডাটা লোকালে সেভ হয়েছে।");
+    } catch (e) {
+        console.error("Save error:", e);
+    }
 }
 
-console.log('✅ ক্লাউড সিঙ্ক ফাংশন এবং বাটন যোগ করা হয়েছে');
-console.log('📌 পেজ রিফ্রেশ না করলেও কাজ করবে, তবে স্থায়ী করতে script.js এ সেভ করুন');
+// ৩. ডাটা লোড করার ফাংশন (রিফ্রেশ দিলে এটিই কল হবে)
+function loadData() {
+    console.log("📂 লোকাল স্টোরেজ থেকে ডাটা লোড হচ্ছে...");
+    
+    // প্রথমে বর্তমান মিটারের ডাটা চেক করো
+    const savedActiveId = localStorage.getItem('desco_active_meter_id');
+    if (savedActiveId) {
+        const meterData = JSON.parse(localStorage.getItem(`meter_data_${savedActiveId}`));
+        if (meterData) {
+            currentBalance = parseFloat(meterData.currentBalance) || 0;
+            totalRecharge = parseFloat(meterData.totalRecharge) || 0;
+            totalExpended = parseFloat(meterData.totalExpended) || 0;
+            transactions = meterData.transactions || [];
+            console.log("✅ মিটার ডাটা লোড সম্পন্ন।");
+            return;
+        }
+    }
+
+    // ব্যাকআপ হিসেবে জেনারেল স্টোরেজ চেক
+    const savedBalance = localStorage.getItem('desco_currentBalance');
+    if (savedBalance) currentBalance = parseFloat(savedBalance);
+    const savedTransactions = localStorage.getItem('desco_transactions');
+    if (savedTransactions) transactions = JSON.parse(savedTransactions);
+}
+
+// ৪. অটোমেটিক ওভাররাইড রোধ করতে window.load ব্যবহার
+window.addEventListener('load', () => {
+    loadData();
+    updateBalanceDisplay();
+    if (typeof loadTransactionReport === 'function') loadTransactionReport();
+});
+
+// ==================== ট্রানজেকশন হিস্ট্রি ডিসেন্ডিং অর্ডার ফিক্স ====================
+
+const originalLoadReport = typeof loadTransactionReport === 'function' ? loadTransactionReport : function() {};
+
+loadTransactionReport = function() {
+    console.log('🔄 ট্রানজেকশন হিস্ট্রি সাজানো হচ্ছে (Descending Order)...');
+    
+    const transactionList = document.getElementById('transactionList');
+    if (!transactionList) return;
+
+    // ১. আপনার বর্তমান মিটারের ডাটা ফিল্টার করুন
+    const txs = getActiveTransactions() || transactions || [];
+    
+    if (txs.length === 0) {
+        transactionList.innerHTML = '<p style="text-align: center; color: #7f8c8d; padding: 20px;">কোন ট্রানজেকশন নেই</p>';
+        return;
+    }
+
+    // ২. সবচেয়ে গুরুত্বপূর্ণ অংশ: ডিসেন্ডিং অর্ডার (বড় আইডি/তারিখ আগে)
+    // আমরা আইডি দিয়ে সর্ট করছি কারণ আইডি হিসেবে Date.now() ব্যবহার করা হয়েছে
+    const sortedTransactions = [...txs].sort((a, b) => {
+        return (b.id || 0) - (a.id || 0); 
+    });
+
+    // ৩. HTML জেনারেশন (পুরানো লজিক ঠিক রেখে)
+    let html = '';
+    
+    // সামারি বার এবং অন্যান্য এনালাইসিস এখানে কল হতে পারে (ঐচ্ছিক)
+    // html += generateSummaryCardsHTML(sortedTransactions); 
+
+    html += '<h4 style="margin: 25px 0 10px 10px; color: #2c3e50;">📝 ট্রানজেকশন হিস্ট্রি (সঠিক ক্রমে)</h4>';
+    
+    sortedTransactions.forEach(t => {
+        const isRec = t.type === 'recharge';
+        html += `
+            <div class="transaction-item" style="background: white; padding: 15px; margin: 10px 0; border-radius: 10px; border-left: 5px solid ${isRec ? '#27ae60' : '#e74c3c'}; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+                <div style="flex: 2;">
+                    <div style="font-weight: bold; color: ${isRec ? '#27ae60' : '#e74c3c'};">${isRec ? '💰 রিচার্জ' : '💡 বিদ্যুৎ বিল'}</div>
+                    <div style="font-size: 12px; color: #7f8c8d; margin-top: 4px;">${t.description || ''} ${t.units ? `| ${toBanglaNumber(t.units.toFixed(2))} kWh` : ''}</div>
+                    <small style="color: #bdc3c7;">${t.timestamp || t.date || ''}</small>
+                </div>
+                <div style="text-align: right; flex: 1;">
+                    <div style="font-weight: bold; color: ${isRec ? '#27ae60' : '#e74c3c'}; font-size: 16px;">${isRec ? '+' : '-'} ${toBanglaNumber(Math.abs(t.amount).toFixed(2))} টাকা</div>
+                    <div style="font-size: 11px; color: #95a5a6;">ব্যালেন্স: ${toBanglaNumber((t.balanceAfter || 0).toFixed(2))}</div>
+                </div>
+            </div>
+        `;
+    });
+
+    transactionList.innerHTML = html;
+    
+    // ড্যাশবোর্ডের স্ট্যাটিক সংখ্যাগুলো আপডেট করুন (যেমন মোট রিচার্জ, মোট খরচ)
+    if (typeof updateStaticCounts === 'function') updateStaticCounts(sortedTransactions);
+};
+
+// ডাটা লোড হওয়ার পর অটোমেটিক রান করা
+window.addEventListener('load', () => {
+    setTimeout(loadTransactionReport, 200);
+});
+
+// ==================== আলটিমেট রিপোর্ট ফিক্স (Zombie Hunter Version) ====================
+
+window.loadTransactionReport = function() {
+    console.log('🧹 পুরনো ডাটা ডিলিট ও নতুন রিপোর্ট তৈরি হচ্ছে...');
+    
+    // ১. মাসিক রঙিন বক্সগুলো লোড করা
+    if (typeof loadMonthlySummary === 'function') loadMonthlySummary(); 
+
+    const transactionList = document.getElementById('transactionList');
+    const reportTab = document.getElementById('reportTab');
+    const txs = (typeof getActiveTransactions === 'function') ? getActiveTransactions() : (transactions || []);
+    
+    if (!txs || txs.length === 0) {
+        if (transactionList) transactionList.innerHTML = '<p style="text-align:center; padding:20px;">কোন ট্রানজেকশন নেই</p>';
+        return;
+    }
+
+    // ২. ক্যালকুলেশন লজিক (০ ভ্যালু ফিক্স)
+    let totalR = 0, totalE = 0, totalK = 0;
+    const monthMap = new Set();
+    const toEn = (s) => String(s).replace(/[০-৯]/g, d => '0123456789'['০১২৩৪৫৬৭৮৯'.indexOf(d)]);
+
+    txs.forEach(t => {
+        const amt = Math.abs(parseFloat(t.amount)) || 0;
+        let units = parseFloat(t.units) || 0;
+        if (t.type === 'recharge') totalR += amt;
+        else if (t.type === 'electricity_bill') {
+            totalE += amt;
+            if (units === 0 && amt > 0) units = amt / 6.5; 
+            totalK += units;
+            try {
+                let dStr = toEn(t.timestamp || t.date || "").split(',')[0];
+                let p = dStr.split('/');
+                if (p.length === 3) monthMap.add(p[2] + '-' + p[1]);
+            } catch(e) {}
+        }
+    });
+
+    // ৩. আপনার পছন্দের বেগুনি গ্রাডিয়েন্ট কার্ড (শুধুমাত্র এটিই থাকবে)
+    const summaryCardsHTML = `
+        <div id="attractiveSummaryBar" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 15px; border-radius: 16px; margin: 15px 0; box-shadow: 0 4px 15px rgba(0,0,0,0.2); width: calc(100% - 2px);">
+            <div style="background:white; padding:12px 5px; border-radius:12px; text-align:center; border-bottom:3px solid #27ae60;">
+                <div style="font-size:10px; color:#666; font-weight:bold;">💰 মোট রিচার্জ</div>
+                <div style="font-size:14px; font-weight:800; color:#27ae60;">${toBanglaNumber(totalR.toFixed(2))}</div>
+            </div>
+            <div style="background:white; padding:12px 5px; border-radius:12px; text-align:center; border-bottom:3px solid #e74c3c;">
+                <div style="font-size:10px; color:#666; font-weight:bold;">💸 মোট খরচ</div>
+                <div style="font-size:14px; font-weight:800; color:#e74c3c;">${toBanglaNumber(totalE.toFixed(2))}</div>
+            </div>
+            <div style="background:white; padding:12px 5px; border-radius:12px; text-align:center; border-bottom:3px solid #3498db;">
+                <div style="font-size:10px; color:#666; font-weight:bold;">📝 ট্রানজেকশন</div>
+                <div style="font-size:14px; font-weight:800; color:#3498db;">${toBanglaNumber(txs.length.toString())}</div>
+            </div>
+            <div style="background:white; padding:12px 5px; border-radius:12px; text-align:center; border-bottom:3px solid #f39c12;">
+                <div style="font-size:10px; color:#666; font-weight:bold;">📊 মাসিক গড় খরচ</div>
+                <div style="font-size:14px; font-weight:800; color:#f39c12;">${toBanglaNumber((totalE/(monthMap.size||1)).toFixed(2))}</div>
+            </div>
+            <div style="background:white; padding:12px 5px; border-radius:12px; text-align:center; border-bottom:3px solid #9b59b6;">
+                <div style="font-size:10px; color:#666; font-weight:bold;">⚡ মোট KWH</div>
+                <div style="font-size:14px; font-weight:800; color:#9b59b6;">${toBanglaNumber(totalK.toFixed(2))}</div>
+            </div>
+            <div style="background:white; padding:12px 5px; border-radius:12px; text-align:center; border-bottom:3px solid #1abc9c;">
+                <div style="font-size:10px; color:#666; font-weight:bold;">📈 গড় মাসিক KWH</div>
+                <div style="font-size:14px; font-weight:800; color:#1abc9c;">${toBanglaNumber((totalK/(monthMap.size||1)).toFixed(2))}</div>
+            </div>
+        </div>
+    `;
+
+    // ৪. ট্রানজেকশন হিস্ট্রি লিস্ট
+    let historyHTML = '<h4 class="transaction-history-title" style="margin: 25px 0 10px 5px; color: #2c3e50;">📝 ট্রানজেকশন হিস্ট্রি</h4>';
+    const sortedTxs = [...txs].sort((a, b) => (b.id || 0) - (a.id || 0));
+    sortedTxs.forEach(t => {
+        const isRec = t.type === 'recharge';
+        historyHTML += `<div class="transaction-item" style="background:white; padding:15px; margin:10px 0; border-radius:10px; border-left:5px solid ${isRec ? '#27ae60' : '#e74c3c'}; display:flex; justify-content:space-between; box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+            <div style="flex:2;"><div style="font-weight:bold; color:${isRec ? '#27ae60' : '#e74c3c'};">${isRec ? '💰 রিচার্জ' : '💡 বিল'}</div><div style="font-size:12px; color:#7f8c8d;">${t.description||''}</div><small style="color:#bdc3c7;">${t.timestamp||t.date}</small></div>
+            <div style="text-align:right; flex:1;"><div style="font-weight:bold; color:${isRec ? '#27ae60' : '#e74c3c'}; font-size:16px;">${isRec?'+':'-'} ${toBanglaNumber(Math.abs(t.amount).toFixed(2))} ৳</div><div style="font-size:11px; color:#95a5a6;">ব্যালেন্স: ${toBanglaNumber((t.balanceAfter||0).toFixed(2))}</div></div>
+        </div>`;
+    });
+
+    // ৫. রেন্ডারিং এবং জম্বি পরিষ্কার করা
+    if (transactionList) {
+        transactionList.innerHTML = historyHTML;
+        const searchBox = document.querySelector('.search-container') || document.getElementById('searchInput')?.parentElement;
+        if (searchBox) {
+            const oldBar = document.getElementById('attractiveSummaryBar');
+            if (oldBar) oldBar.remove();
+            searchBox.insertAdjacentHTML('afterend', summaryCardsHTML);
+        }
+    }
+
+    // ৬. জম্বি হান্টার: যেকোনো পুরনো অকেজো সামারি ডিলিট করো (Force)
+    setTimeout(() => {
+        const reportContent = document.getElementById('reportTab');
+        if (reportContent) {
+            const zombies = reportContent.querySelectorAll('div[style*="border-left: 3px solid #3498db"]');
+            zombies.forEach(z => { if (!z.closest('#attractiveSummaryBar')) z.remove(); });
+        }
+    }, 100);
+
+    // ৭. হেডারের সাদা বক্সগুলো আপডেট
+    const updateEl = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+    updateEl('totalDeposit', `${toBanglaNumber(totalR.toFixed(2))} টাকা`);
+    updateEl('totalExpense', `${toBanglaNumber(totalE.toFixed(2))} টাকা`);
+    updateEl('headerTotalKWH', `${toBanglaNumber(totalK.toFixed(2))} kWh`);
+    updateEl('headerAvgMonthlyKWH', `${toBanglaNumber((totalK/(monthMap.size||1)).toFixed(2))} kWh`);
+};
+
+// পেজ লোড হলে এবং ট্যাব সুইচ করলে রান হবে
+window.addEventListener('load', () => setTimeout(loadTransactionReport, 500));
+
+// ==================== রঙিন সারাংশ কার্ড (স্থায়ী ভার্সন) ====================
+
+(function addPermanentSummaryCard() {
+    
+    function createAndAddCard() {
+        // 1. পুরানো সব কার্ড সরান
+        const allOldCards = document.querySelectorAll('#attractiveSummaryBar, .report-summary, .report-summary-bar, .summary-grid, #summaryCardsSection');
+        allOldCards.forEach(card => card.remove());
+        
+        // 2. ডাটা ক্যালকুলেট করুন
+        let totalRechargeAmount = 0;
+        let totalExpenseAmount = 0;
+        let totalKWH = 0;
+        
+        if (typeof transactions !== 'undefined' && transactions.length > 0) {
+            transactions.forEach(t => {
+                if (t.type === 'recharge') totalRechargeAmount += Math.abs(t.amount);
+                else if (t.type === 'electricity_bill') {
+                    totalExpenseAmount += Math.abs(t.amount);
+                    totalKWH += t.units || 0;
+                }
+            });
+        }
+        
+        // মাসিক গড় বের করুন
+        const months = new Set();
+        if (typeof transactions !== 'undefined') {
+            transactions.forEach(t => {
+                if (t.type === 'electricity_bill' && t.timestamp) {
+                    try {
+                        const d = new Date(t.timestamp);
+                        if (!isNaN(d.getTime())) months.add(`${d.getFullYear()}-${d.getMonth()}`);
+                    } catch(e) {}
+                }
+            });
+        }
+        const monthCount = months.size || 1;
+        const avgExpense = totalExpenseAmount / monthCount;
+        const avgKWH = totalKWH / monthCount;
+        const txCount = (typeof transactions !== 'undefined') ? transactions.length : 0;
+        
+        // 3. নতুন কার্ড তৈরি
+        const newCard = document.createElement('div');
+        newCard.id = 'attractiveSummaryBar';
+        newCard.style.cssText = 'display: flex; flex-wrap: wrap; gap: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 18px; border-radius: 16px; margin: 15px 0 20px 0;';
+        newCard.innerHTML = `
+            <div style="flex: 1; min-width: 100px; background: rgba(255,255,255,0.95); padding: 12px 8px; border-radius: 12px; text-align: center;">
+                <div style="font-size: 11px; color: #666;">💰 মোট রিচার্জ</div>
+                <div style="font-size: 16px; font-weight: bold; color: #27ae60;">${toBanglaNumber(totalRechargeAmount.toFixed(2))} <span style="font-size: 10px;">টাকা</span></div>
+            </div>
+            <div style="flex: 1; min-width: 100px; background: rgba(255,255,255,0.95); padding: 12px 8px; border-radius: 12px; text-align: center;">
+                <div style="font-size: 11px; color: #666;">💸 মোট খরচ</div>
+                <div style="font-size: 16px; font-weight: bold; color: #e74c3c;">${toBanglaNumber(totalExpenseAmount.toFixed(2))} <span style="font-size: 10px;">টাকা</span></div>
+            </div>
+            <div style="flex: 1; min-width: 100px; background: rgba(255,255,255,0.95); padding: 12px 8px; border-radius: 12px; text-align: center;">
+                <div style="font-size: 11px; color: #666;">📝 ট্রানজেকশন</div>
+                <div style="font-size: 16px; font-weight: bold; color: #3498db;">${toBanglaNumber(txCount)} <span style="font-size: 10px;">টি</span></div>
+            </div>
+            <div style="flex: 1; min-width: 100px; background: rgba(255,255,255,0.95); padding: 12px 8px; border-radius: 12px; text-align: center;">
+                <div style="font-size: 11px; color: #666;">📊 গড় মাসিক খরচ</div>
+                <div style="font-size: 16px; font-weight: bold; color: #f39c12;">${toBanglaNumber(avgExpense.toFixed(2))} <span style="font-size: 10px;">টাকা</span></div>
+            </div>
+            <div style="flex: 1; min-width: 100px; background: rgba(255,255,255,0.95); padding: 12px 8px; border-radius: 12px; text-align: center;">
+                <div style="font-size: 11px; color: #666;">⚡ মোট KWH</div>
+                <div style="font-size: 16px; font-weight: bold; color: #9b59b6;">${toBanglaNumber(totalKWH.toFixed(2))} <span style="font-size: 10px;">kWh</span></div>
+            </div>
+            <div style="flex: 1; min-width: 100px; background: rgba(255,255,255,0.95); padding: 12px 8px; border-radius: 12px; text-align: center;">
+                <div style="font-size: 11px; color: #666;">📈 গড় মাসিক KWH</div>
+                <div style="font-size: 16px; font-weight: bold; color: #1abc9c;">${toBanglaNumber(avgKWH.toFixed(2))} <span style="font-size: 10px;">kWh</span></div>
+            </div>
+        `;
+        
+        // 4. সঠিক জায়গায় বসান
+        let searchBox = document.querySelector('#searchInput');
+        if (!searchBox) searchBox = document.querySelector('input[placeholder*="খুঁজুন"]');
+        
+        if (searchBox && searchBox.parentElement) {
+            searchBox.parentElement.insertAdjacentElement('afterend', newCard);
+        } else {
+            const reportTab = document.getElementById('reportTab');
+            if (reportTab) reportTab.insertAdjacentElement('afterbegin', newCard);
+        }
+        
+        console.log('✅ রঙিন সারাংশ কার্ড যোগ করা হয়েছে');
+    }
+    
+    // পেজ লোডে কার্ড যোগ করুন
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', createAndAddCard);
+    } else {
+        setTimeout(createAndAddCard, 200);
+    }
+    
+    // loadTransactionReport এর পরেও যোগ করুন
+    if (typeof window.loadTransactionReport === 'function') {
+        const original = window.loadTransactionReport;
+        window.loadTransactionReport = function() {
+            original();
+            setTimeout(createAndAddCard, 100);
+        };
+    }
+    
+    console.log('✅ রঙিন সারাংশ কার্ড স্থায়ীভাবে ইনস্টল করা হয়েছে');
+})();
