@@ -1,57 +1,42 @@
 let deferredPrompt;
 
-// ১. ইন্সটল প্রম্পট ইভেন্ট ধরা
+// সার্ভিস ওয়ার্কার চেক
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('service-worker.js');
+}
+
+// ১. ব্রাউজারের সিগন্যাল ধরা
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
-    
-    // বাটনটি স্ক্রিনে দেখানো
-    const installButton = document.getElementById('custom-install-button');
-    if (installButton) {
-        installButton.style.display = 'block';
-    }
-
-    console.log("✅ PWA ইন্সটলের জন্য প্রস্তুত!");
+    console.log("✅ ব্রাউজার ইন্সটলের জন্য সিগন্যাল দিয়েছে");
 });
 
-// ২. ইন্সটল বাটনে ক্লিক ইভেন্ট যোগ করা
+// ২. অ্যাপ ইতিমধ্যে ইন্সটলড কি না চেক করা
+const isInstalled = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+// ৩. ৫ সেকেন্ড পর বাটন দেখানো (যদি ইন্সটল করা না থাকে)
 window.addEventListener('load', () => {
-    const installButton = document.getElementById('custom-install-button');
-    if (installButton) {
-        installButton.addEventListener('click', async () => {
-            // যদি ক্রোম প্রম্পট না দিয়ে থাকে, তবে ম্যানুয়াল গাইড দেখানো
-            if (!deferredPrompt) {
-                alert("মোবাইলের মেনু (৩টি ডট) থেকে 'Install App' বা 'Add to Home Screen' এ ক্লিক করুন।");
-                return;
-            }
-
-            // প্রম্পট দেখানো
-            deferredPrompt.prompt();
-            const { outcome } = await deferredPrompt.userChoice;
-
-            // ইউজার ইন্সটল করলে বাটন লুকিয়ে ফেলা
-            if (outcome === 'accepted') {
-                installButton.style.display = 'none';
-                console.log('User installed the app');
-            }
-            
-            deferredPrompt = null;
-        });
+    if (!isInstalled) {
+        setTimeout(() => {
+            const container = document.getElementById('pwa-install-container');
+            if (container) container.style.display = 'block';
+        }, 5000); // ৫ সেকেন্ড পর বাটনটি ভেসে উঠবে
     }
 });
 
-// ৩. অ্যাপ ইন্সটল হয়ে গেলে বাটন লুকিয়ে ফেলা
-window.addEventListener('appinstalled', () => {
-    const installButton = document.getElementById('custom-install-button');
-    if (installButton) {
-        installButton.style.display = 'none';
+// ৪. বাটনে ক্লিক করলে যা হবে
+document.getElementById('pwa-install-btn')?.addEventListener('click', async () => {
+    if (deferredPrompt) {
+        // যদি ব্রাউজার পারমিশন দিয়ে থাকে
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+            document.getElementById('pwa-install-container').remove();
+        }
+        deferredPrompt = null;
+    } else {
+        // যদি ব্রাউজার পারমিশন না দেয় (ম্যানুয়াল গাইড)
+        alert("ইন্সটল করার জন্য:\n১. ব্রাউজারের উপরে ডানে ৩টি ডট (⋮) এ ক্লিক করুন।\n২. 'Install app' অথবা 'Add to Home screen' এ ক্লিক করুন।");
     }
-    console.log('🎉 অ্যাপ সফলভাবে ইন্সটল হয়েছে!');
 });
-
-// ৪. সার্ভিস ওয়ার্কার রেজিস্ট্রেশন (আপনার আগের কোড অনুযায়ী)
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./service-worker.js')
-        .then(reg => console.log('✅ Service Worker Registered'))
-        .catch(err => console.error('❌ SW Registration Failed:', err));
-}

@@ -912,6 +912,16 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 <script src="script.js"></script>
+
+<!-- পোর্টেবল ইন্সটল বাটন -->
+<div id="pwa-install-container" style="display:none; position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:1000000; width:90%; max-width:350px;">
+    <div style="background:white; padding:15px; border-radius:15px; box-shadow:0 10px 30px rgba(0,0,0,0.3); border:2px solid #27ae60; text-align:center;">
+        <p style="margin:0 0 10px; color:#2c3e50; font-weight:bold; font-size:14px;">দ্রুত ব্যবহারের জন্য অ্যাপটি ইন্সটল করুন</p>
+        <button id="pwa-install-btn" style="background:#27ae60; color:white; border:none; padding:10px 30px; border-radius:10px; font-weight:bold; width:100%; font-size:16px; cursor:pointer;">📲 এখনই ইন্সটল করুন</button>
+        <button onclick="document.getElementById('pwa-install-container').remove()" style="background:none; border:none; color:#95a5a6; margin-top:8px; font-size:12px; cursor:pointer;">পরে করবো</button>
+    </div>
+</div>
+
 <script src="pwa.js"></script>
 </body>
 </html>
