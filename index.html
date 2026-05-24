@@ -55,6 +55,23 @@
     console.log('🔥 Firebase Ready!');
     console.log('Database exists:', typeof database !== 'undefined');
     </script>
+	
+	<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      // এখানে ফাইলের নাম এবং পাথ ঠিক আছে কি না নিশ্চিত করুন
+      navigator.serviceWorker.register('./service-worker.js', { scope: './' })
+        .then(function(registration) {
+          console.log('✅ SW Registered with scope: ', registration.scope);
+          alert("✅ সার্ভিস ওয়ার্কার সফলভাবে রেজিস্টার্ড হয়েছে! এখন ৩০ সেকেন্ড অপেক্ষা করুন।");
+        }, function(err) {
+          console.log('❌ SW Registration failed: ', err);
+          alert("❌ সার্ভিস ওয়ার্কার রেজিস্ট্রেশন ফেল করেছে: " + err);
+        });
+    });
+  }
+</script>
+
 </head>
 <body>
     <!-- লগিন মডাল - আধুনিক ডিজাইন -->
