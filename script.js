@@ -17,21 +17,60 @@ showMainApp = function() {
     }
 };
 
-// ১. উন্নত IP Fetching
+// ১. উন্নত IP Fetching (একাধিক API ব্যাকআপ সহ)
 async function getUserIP() {
     try {
-        const response = await fetch('https://api64.ipify.org?format=json');
+        // CORS সমস্যা এড়াতে 'mode' সেট করুন
+        const response = await fetch('https://api.ipify.org?format=json', {
+            mode: 'cors',
+            headers: { 'Accept': 'application/json' }
+        });
         const data = await response.json();
-        return data.ip;
+        if (data.ip) return data.ip;
     } catch (e) {
-        try {
-            const res = await fetch('https://ipapi.co/json/');
-            const d = await res.json();
-            return d.ip;
-        } catch (err) {
-            return "Unknown (VPN/Blocked)";
-        }
+        console.log('ipify ব্যর্থ, ব্যাকআপ ব্যবহার...');
     }
+    
+    try {
+        // ব্যাকআপ API (CORS সাপোর্ট করে)
+        const res = await fetch('https://api.my-ip.io/ip.json');
+        const data = await res.json();
+        return data.ip;
+    } catch(e) {
+        console.warn('সব API ব্যর্থ');
+        return 'IP পাওয়া যায়নি';
+    }
+}
+
+// ডিভাইস শনাক্ত করার ফাংশন
+function getDeviceInfo() {
+    const ua = navigator.userAgent;
+    let device = 'Unknown';
+    
+    if (/Mobile|Android|iPhone|iPad|iPod/i.test(ua)) {
+        if (/iPad|iPhone|iPod/.test(ua)) device = 'iOS Device';
+        else if (/Android/.test(ua)) device = 'Android Device';
+        else device = 'Mobile Device';
+    } else if (/Tablet/i.test(ua)) {
+        device = 'Tablet';
+    } else if (/Mac/i.test(ua)) {
+        device = 'Mac';
+    } else if (/Linux/i.test(ua)) {
+        device = 'Linux';
+    } else if (/Windows/i.test(ua)) {
+        device = 'Windows PC';
+    } else {
+        device = 'Desktop';
+    }
+    
+    // ব্রাউজার তথ্য যোগ করুন
+    let browser = 'Unknown';
+    if (/Chrome/i.test(ua) && !/Edg/i.test(ua)) browser = 'Chrome';
+    else if (/Firefox/i.test(ua)) browser = 'Firefox';
+    else if (/Edg/i.test(ua)) browser = 'Edge';
+    else if (/Safari/i.test(ua)) browser = 'Safari';
+    
+    return `${device} (${browser})`;
 }
 
 // ==================== মাস্টার ডিলিট: লগ + ইউজার অ্যাকাউন্ট + মিটার ডাটা ====================
@@ -312,7 +351,7 @@ function handleLogin(event) {
     showNotification(`✅ স্বাগতম ${user.fullName}!`, 'success');
 }
 
-// রেজিস্ট্রেশন হ্যান্ডলার
+// রেজিস্ট্রেশন হ্যান্ডলার (IP ও Device সহ)
 async function handleRegister(event) {
     event.preventDefault();
     
@@ -334,9 +373,36 @@ async function handleRegister(event) {
         return;
     }
 
-    // কোডটি একটি try-catch ব্লকের ভেতরে রাখা হলো যাতে সিনট্যাক্স এরর না আসে
     try {
         showNotification('⏳ অ্যাকাউন্ট তৈরি হচ্ছে...', 'info');
+
+        // ✅ IP ফেচ করুন
+        const userIP = await getUserIP();
+        
+        // ✅ ডিভাইস তথ্য তৈরি করুন
+        const deviceInfo = (() => {
+            const ua = navigator.userAgent;
+            if (/Mobile|Android|iPhone|iPad|iPod/i.test(ua)) {
+                if (/iPad|iPhone|iPod/.test(ua)) return 'iOS Device';
+                if (/Android/.test(ua)) return 'Android Device';
+                return 'Mobile Device';
+            }
+            if (/Tablet/i.test(ua)) return 'Tablet';
+            if (/Mac/i.test(ua)) return 'Mac';
+            if (/Linux/i.test(ua)) return 'Linux';
+            if (/Windows/i.test(ua)) return 'Windows PC';
+            return 'Desktop';
+        })();
+        
+        // ✅ ব্রাউজার তথ্য
+        let browser = 'Unknown';
+        const ua = navigator.userAgent;
+        if (/Chrome/i.test(ua) && !/Edg/i.test(ua)) browser = 'Chrome';
+        else if (/Firefox/i.test(ua)) browser = 'Firefox';
+        else if (/Edg/i.test(ua)) browser = 'Edge';
+        else if (/Safari/i.test(ua)) browser = 'Safari';
+        
+        const device = `${deviceInfo} (${browser})`;
 
         const newUser = {
             id: Date.now(),
@@ -345,8 +411,13 @@ async function handleRegister(event) {
             email: email,
             password: btoa(password + 'desco_salt'),
             isActive: true,
+            ip: userIP,
+            device: device,
             timestamp: new Date().toISOString()
         };
+
+        // ✅ IP লোকাল স্টোরেজে সেভ করুন
+        localStorage.setItem('desco_user_ip', userIP);
 
         // ১. লোকাল সেভ
         users.push(newUser);
@@ -355,10 +426,10 @@ async function handleRegister(event) {
         // ২. নতুন ইউজারের জন্য ডিফল্ট মিটার প্রোফাইল তৈরি
         const defaultMeter = {
             id: 'meter_' + Date.now(),
-            name: "K. M. Abu Bakkar Siddek (Shahed)", 
-            meterNumber: generateRandomDigits(12),   
-            accountNumber: generateRandomDigits(8),  
-            address: "ডিফল্ট ঠিকানা",
+            name: fullName, 
+            meterNumber: '030619019016',
+            accountNumber: '41438590',
+            address: "ঢাকা, বাংলাদেশ",
             phone: "01XXXXXXXXX"
         };
 
@@ -371,20 +442,20 @@ async function handleRegister(event) {
             meters: [defaultMeter],
             activeMeterId: defaultMeter.id,
             meterInfo: defaultMeter,
-            lastUpdated: firebase.database.ServerValue.TIMESTAMP
+            lastUpdated: Date.now()
         };
 
         // ৩. Firebase-এ সেভ করা
         if (typeof database !== 'undefined') {
             await database.ref('registration_logs/' + newUser.id).set(newUser);
             await database.ref('meter_data/' + newUser.id).set(initialMeterData);
+            console.log('✅ Firebase এ ডাটা সেভ হয়েছে');
         }
         
         showNotification('✅ অ্যাকাউন্ট তৈরি সফল! লগইন করুন', 'success');
         showLoginForm();
 
     } catch (error) {
-        // try ব্লকের পর এই catch অংশটি থাকা বাধ্যতামূলক
         console.error("Registration Error:", error);
         showNotification('❌ রেজিস্ট্রেশন করতে সমস্যা হয়েছে!', 'error');
     }
@@ -969,41 +1040,53 @@ function updateUserDisplay() {
     }
 }
 
-// ইউজার ম্যানেজমেন্ট ফাংশন (অ্যাডমিনের জন্য)
+// ইউজার ম্যানেজমেন্ট ফাংশন (অ্যাডমিনের জন্য) - IP ও ডিভাইস সহ
 function showUserManagement() {
     if (!currentUser) return;
     
     let html = `
         <div style="text-align: center; margin-bottom: 20px;">
-            <h3>👥 ইউজার ম্যানেজমেন্ট</h3>
+            <h3>👑 অ্যাডমিন কন্ট্রোল প্যানেল</h3>
             <p>মোট ইউজার: ${users.length}</p>
+            <p style="color: #e74c3c; font-size: 13px;">⚠️ এখান থেকে ইউজার ডিলিট করলে তার সব ডাটা মুছে যাবে</p>
         </div>
         
-        <div style="max-height: 400px; overflow-y: auto;">
+        <div style="max-height: 500px; overflow-y: auto;">
     `;
     
     users.forEach(user => {
-        const lastLogin = user.lastLogin ? new Date(user.lastLogin).toLocaleString('bn-BD') : 'Never';
+        const lastLogin = user.lastLogin ? new Date(user.lastLogin).toLocaleString('bn-BD') : 'কখনো নয়';
+        const regDate = user.timestamp ? new Date(user.timestamp).toLocaleString('bn-BD') : 
+                       (user.createdAt ? new Date(user.createdAt).toLocaleString('bn-BD') : 'তারিখ নেই');
+        
+        // IP এবং ডিভাইস দেখানোর অংশ
+        const ipDisplay = user.ip && user.ip !== 'Unknown (VPN/Blocked)' ? user.ip : 'সংগৃহীত হয়নি';
+        const deviceDisplay = user.device || navigator.platform || 'অজানা';
         
         html += `
             <div style="background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 8px; border-left: 4px solid ${user.isActive ? '#27ae60' : '#e74c3c'};">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <div style="font-weight: bold;">${user.fullName}</div>
-                        <div style="color: #666; font-size: 14px;">
-                            @${user.username} • ${user.email}
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div style="flex: 1;">
+                        <div style="font-weight: bold; color: #2c3e50;">
+                            👤 ${user.fullName} (@${user.username})
+                            ${user.username === 'admin' ? '<span style="background: #e74c3c; color: white; padding: 2px 8px; border-radius: 12px; font-size: 10px; margin-left: 8px;">অ্যাডমিন</span>' : ''}
                         </div>
-                        <div style="color: #666; font-size: 12px;">
-                            Created: ${new Date(user.createdAt).toLocaleDateString('bn-BD')} | 
-                            Last Login: ${lastLogin}
+                        <div style="color: #666; font-size: 13px; margin-top: 5px;">
+                            <div>📧 ${user.email}</div>
+                            <div>🌐 IP: ${ipDisplay} | 📱 Device: ${deviceDisplay}</div>
+                            <div>⏰ রেজিস্ট্রেশন: ${regDate}</div>
+                            <div>🕐 শেষ লগইন: ${lastLogin}</div>
                         </div>
                     </div>
                     <div style="display: flex; gap: 5px;">
                         ${user.username !== 'admin' ? `
                             <button onclick="toggleUserStatus(${user.id})" style="padding: 5px 10px; background: ${user.isActive ? '#e74c3c' : '#27ae60'}; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
-                                ${user.isActive ? 'Disable' : 'Enable'}
+                                ${user.isActive ? '🔒 Disable' : '🔓 Enable'}
                             </button>
-                        ` : ''}
+                            <button onclick="deleteUserById(${user.id})" style="padding: 5px 10px; background: #c0392b; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                                🗑️ ডিলিট
+                            </button>
+                        ` : '<span style="background: #2c3e50; color: white; padding: 5px 10px; border-radius: 4px; font-size: 12px;">👑 সুপার অ্যাডমিন</span>'}
                     </div>
                 </div>
             </div>
@@ -1012,27 +1095,30 @@ function showUserManagement() {
     
     html += `</div>`;
     
-    showCustomModal('ইউজার ম্যানেজমেন্ট', html);
+    showCustomModal('👑 অ্যাডমিন কন্ট্রোল প্যানেল', html);
 }
 
-// ইউজার স্ট্যাটাস টগল
-function toggleUserStatus(userId) {
-    const user = users.find(u => u.id === userId);
-    if (user) {
-        user.isActive = !user.isActive;
+// ইউজার ডিলিট ফাংশন (নতুন)
+function deleteUserById(userId) {
+    const userToDelete = users.find(u => u.id === userId);
+    if (!userToDelete) return;
+    
+    if (confirm(`⚠️ নিশ্চিত কি "${userToDelete.fullName}" (@${userToDelete.username}) ইউজার ডিলিট করতে চান?\n\nএকবার ডিলিট করলে পুনরুদ্ধার করা যাবে না!`)) {
+        // ইউজার ডিলিট
+        users = users.filter(u => u.id !== userId);
         saveUsers();
-        showUserManagement();
-        showNotification(`✅ ইউজার ${user.isActive ? 'enabled' : 'disabled'}`, 'success');
+        
+        // ওই ইউজারের ক্লাউড ডাটাও ডিলিট করুন (যদি থাকে)
+        if (typeof database !== 'undefined') {
+            database.ref('user_data/' + userId).remove()
+                .then(() => console.log(`✅ ${userId} ইউজারের ক্লাউড ডাটা ডিলিট`))
+                .catch(e => console.error('ক্লাউড ডিলিট ব্যর্থ:', e));
+        }
+        
+        showNotification(`✅ "${userToDelete.fullName}" ইউজার ডিলিট করা হয়েছে!`, 'success');
+        showUserManagement(); // লিস্ট রিফ্রেশ
     }
 }
-
-// গ্লোবাল এক্সেস
-window.handleLogin = handleLogin;
-window.handleRegister = handleRegister;
-window.showRegisterForm = showRegisterForm;
-window.showLoginForm = showLoginForm;
-window.logout = logout;
-window.showUserManagement = showUserManagement;
 
 // ==================== লগিন সিস্টেম শেষ ====================
 
@@ -16207,3 +16293,414 @@ if (document.getElementById('lastBalance')) {
 }
 
 console.log('✅ সর্বশেষ খরচ টেক্সট ফিক্স স্থায়ীভাবে ইনস্টল করা হয়েছে');
+
+/* // ==================== শুধু রেজিস্ট্রেশন লগ + মিটার ইনফো ক্লাউড সিঙ্ক ====================
+
+// 1. মাসিক রিচার্জ, ট্রানজেকশন, ব্যালেন্সের জন্য autoSync বন্ধ করুন
+if (typeof autoSyncToFirebase === 'function') {
+    const originalSync = autoSyncToFirebase;
+    window.autoSyncToFirebase = function() {
+        // শুধু রেজিস্ট্রেশন লগ এবং মিটার ইনফো সিঙ্ক হবে
+        if (currentUser && currentUser.id && typeof database !== 'undefined') {
+            // মিটার ইনফো সেভ করুন
+            database.ref('users/' + currentUser.id + '/meterInfo').set(meterInfo);
+        }
+        console.log('ℹ️ শুধু রেজিস্ট্রেশন লগ ও মিটার ইনফো ক্লাউডে সিঙ্ক হয়েছে');
+        return;
+    };
+}
+
+// 2. রেজিস্ট্রেশন লগ সেভ করার সময় ক্লাউডে পাঠান
+if (typeof saveToRegistrationLog === 'function') {
+    const originalSaveLog = saveToRegistrationLog;
+    window.saveToRegistrationLog = function(newUser) {
+        // লোকালে সেভ
+        originalSaveLog(newUser);
+        // ক্লাউডে সেভ
+        if (typeof database !== 'undefined') {
+            database.ref('registration_logs/' + newUser.id).set(newUser)
+                .then(() => console.log('✅ রেজিস্ট্রেশন লগ ক্লাউডে সেভ হয়েছে'))
+                .catch(e => console.error('❌ ক্লাউড লগিং ব্যর্থ', e));
+        }
+    };
+}
+
+// 3. মিটার ইনফো আপডেট হলে ক্লাউডে পাঠান
+if (typeof updateMeterDisplay === 'function') {
+    const originalMeterUpdate = updateMeterDisplay;
+    window.updateMeterDisplay = function() {
+        originalMeterUpdate();
+        // ক্লাউডে মিটার ইনফো সেভ
+        if (currentUser && currentUser.id && typeof database !== 'undefined') {
+            database.ref('users/' + currentUser.id + '/meterInfo').set(meterInfo);
+        }
+    };
+}
+
+// 4. মিটার যোগ/এডিট/সুইচ করলে ক্লাউড আপডেট
+function syncMeterInfoToCloud() {
+    if (currentUser && currentUser.id && typeof database !== 'undefined') {
+        database.ref('users/' + currentUser.id + '/meters').set(meters);
+        database.ref('users/' + currentUser.id + '/activeMeterId').set(activeMeterId);
+        console.log('✅ মিটার তথ্য ক্লাউডে সিঙ্ক হয়েছে');
+    }
+}
+
+// মিটার অপারেশনের সাথে sync যুক্ত করুন
+const meterFunctions = ['addNewMeter', 'updateMeterFromModal', 'deleteMeter', 'setActiveMeter'];
+meterFunctions.forEach(fnName => {
+    if (typeof window[fnName] === 'function') {
+        const originalFn = window[fnName];
+        window[fnName] = function() {
+            const result = originalFn.apply(this, arguments);
+            syncMeterInfoToCloud();
+            return result;
+        };
+    }
+});
+
+// 5. রেজিস্ট্রেশন লগ ক্লাউড থেকে দেখানো
+if (typeof showRegistrationLog === 'function') {
+    const originalShowLog = showRegistrationLog;
+    window.showRegistrationLog = function() {
+        if (!currentUser || currentUser.username !== 'admin') {
+            showNotification('❌ অনুমতি নেই!', 'error');
+            return;
+        }
+        // ক্লাউড থেকে লগ দেখান
+        database.ref('registration_logs').once('value').then(snapshot => {
+            const logs = snapshot.val();
+            if (!logs) {
+                showNotification('❌ কোনো লগ নেই!', 'error');
+                return;
+            }
+            // লগ দেখানোর HTML তৈরি করুন
+            let html = '<div style="max-height:400px;overflow-y:auto">';
+            Object.values(logs).reverse().forEach(log => {
+                html += `
+                    <div style="background:#f8f9fa;padding:10px;margin:5px 0;border-radius:5px">
+                        <strong>${log.fullName}</strong> (@${log.username})<br>
+                        <small>📧 ${log.email}</small><br>
+                        <small>🌐 IP: ${log.ip} | 📱 ${log.device}</small><br>
+                        <small>⏰ ${new Date(log.timestamp).toLocaleString('bn-BD')}</small>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            showCustomModal('📋 রেজিস্ট্রেশন লগ', html);
+        });
+    };
+}
+
+console.log('✅ সেটআপ সম্পন্ন: শুধু রেজিস্ট্রেশন লগ ও মিটার ইনফো ক্লাউডে সিঙ্ক হবে');
+console.log('📌 ট্রানজেকশন ও ব্যালেন্স লোকালি সংরক্ষিত থাকবে'); */
+
+// ==================== সম্পূর্ণ ডাটা ক্লাউড সিঙ্ক (জটিলতা মুক্ত) ====================
+
+// 1. ম্যানুয়াল সিঙ্ক ফাংশন (অটো নয়)
+function manualSyncToCloud() {
+    if (!currentUser || !currentUser.id || typeof database === 'undefined') {
+        showNotification('❌ ইউজার লগইন নেই বা Firebase নেই!', 'error');
+        return;
+    }
+    
+    showNotification('☁️ ক্লাউডে সিঙ্ক হচ্ছে...', 'info');
+    
+    const cloudData = {
+        transactions: transactions,
+        monthlyRecharges: monthlyRecharges,
+        currentBalance: currentBalance,
+        totalRecharge: totalRecharge,
+        totalExpended: totalExpended,
+        meters: meters,
+        activeMeterId: activeMeterId,
+        meterInfo: meterInfo,
+        settings: settings,
+        tariffRates: tariffRates,
+        lastUpdated: new Date().toISOString(),
+        version: '2.0'
+    };
+    
+    database.ref('user_data/' + currentUser.id).set(cloudData)
+        .then(() => {
+            showNotification('✅ ক্লাউডে ডাটা সেভ হয়েছে!', 'success');
+            console.log('✅ ম্যানুয়াল সিঙ্ক সম্পন্ন');
+        })
+        .catch(err => {
+            showNotification('❌ সিঙ্ক ব্যর্থ!', 'error');
+            console.error(err);
+        });
+}
+
+// 2. ম্যানুয়াল রিস্টোর ফাংশন (ক্লাউড থেকে)
+function manualRestoreFromCloud() {
+    if (!currentUser || !currentUser.id || typeof database === 'undefined') {
+        showNotification('❌ ইউজার লগইন নেই!', 'error');
+        return;
+    }
+    
+    if (!confirm('⚠️ ক্লাউড থেকে ডাটা রিস্টোর করলে বর্তমান লোকাল ডাটা প্রতিস্থাপিত হবে! নিশ্চিত?')) return;
+    
+    showNotification('☁️ ক্লাউড থেকে ডাটা আনা হচ্ছে...', 'info');
+    
+    database.ref('user_data/' + currentUser.id).once('value')
+        .then(snapshot => {
+            const cloudData = snapshot.val();
+            if (!cloudData) {
+                showNotification('❌ ক্লাউডে কোনো ডাটা নেই!', 'error');
+                return;
+            }
+            
+            // ডাটা রিস্টোর করুন
+            if (cloudData.transactions) transactions = cloudData.transactions;
+            if (cloudData.monthlyRecharges) monthlyRecharges = cloudData.monthlyRecharges;
+            if (cloudData.currentBalance !== undefined) currentBalance = cloudData.currentBalance;
+            if (cloudData.totalRecharge !== undefined) totalRecharge = cloudData.totalRecharge;
+            if (cloudData.totalExpended !== undefined) totalExpended = cloudData.totalExpended;
+            if (cloudData.meters) meters = cloudData.meters;
+            if (cloudData.activeMeterId) activeMeterId = cloudData.activeMeterId;
+            if (cloudData.meterInfo) meterInfo = cloudData.meterInfo;
+            if (cloudData.settings) settings = cloudData.settings;
+            if (cloudData.tariffRates) tariffRates = cloudData.tariffRates;
+            
+            // লোকাল স্টোরেজে সেভ করুন
+            localStorage.setItem('desco_transactions', JSON.stringify(transactions));
+            localStorage.setItem('desco_monthlyRecharges', JSON.stringify(monthlyRecharges));
+            localStorage.setItem('desco_currentBalance', currentBalance);
+            localStorage.setItem('desco_totalRecharge', totalRecharge);
+            localStorage.setItem('desco_totalExpended', totalExpended);
+            localStorage.setItem('desco_meters', JSON.stringify(meters));
+            localStorage.setItem('desco_active_meter_id', activeMeterId);
+            localStorage.setItem('desco_meterInfo', JSON.stringify(meterInfo));
+            localStorage.setItem('desco_settings', JSON.stringify(settings));
+            localStorage.setItem('desco_tariffRates', JSON.stringify(tariffRates));
+            
+            showNotification('✅ ক্লাউড থেকে ডাটা রিস্টোর করা হয়েছে! পেজ রিফ্রেশ হবে', 'success');
+            setTimeout(() => location.reload(), 1500);
+        })
+        .catch(err => {
+            showNotification('❌ রিস্টোর ব্যর্থ!', 'error');
+            console.error(err);
+        });
+}
+
+// 3. সিঙ্ক স্ট্যাটাস দেখানোর ফাংশন
+function showCloudSyncStatus() {
+    if (!currentUser || !currentUser.id) {
+        showCustomModal('সিঙ্ক স্ট্যাটাস', '<div style="text-align:center;padding:20px">❌ ইউজার লগইন নেই</div>');
+        return;
+    }
+    
+    database.ref('user_data/' + currentUser.id).once('value')
+        .then(snapshot => {
+            const cloudData = snapshot.val();
+            const hasCloud = cloudData ? true : false;
+            const lastSync = cloudData?.lastUpdated || 'কখনো নয়';
+            
+            const html = `
+                <div style="padding:15px">
+                    <h3>📊 ক্লাউড সিঙ্ক স্ট্যাটাস</h3>
+                    <div style="margin:15px 0;background:#f8f9fa;padding:15px;border-radius:10px">
+                        <p><strong>👤 ইউজার:</strong> ${currentUser.fullName} (@${currentUser.username})</p>
+                        <p><strong>☁️ ক্লাউড স্ট্যাটাস:</strong> ${hasCloud ? '✅ ডাটা আছে' : '❌ কোনো ডাটা নেই'}</p>
+                        ${hasCloud ? `<p><strong>🕐 শেষ আপডেট:</strong> ${new Date(lastSync).toLocaleString('bn-BD')}</p>` : ''}
+                        <p><strong>📝 লোকাল ট্রানজেকশন:</strong> ${transactions?.length || 0} টি</p>
+                        <p><strong>💰 লোকাল ব্যালেন্স:</strong> ${currentBalance?.toFixed(2) || 0} টাকা</p>
+                    </div>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap">
+                        <button onclick="manualSyncToCloud()" style="flex:1;padding:12px;background:#27ae60;color:white;border:none;border-radius:8px">☁️ ক্লাউডে সেভ করুন</button>
+                        <button onclick="manualRestoreFromCloud()" style="flex:1;padding:12px;background:#e74c3c;color:white;border:none;border-radius:8px">⬇️ ক্লাউড থেকে রিস্টোর</button>
+                    </div>
+                    <p style="margin-top:15px;font-size:11px;color:#666">💡 টিপ: ক্লাউড সিঙ্ক এখন ম্যানুয়ালি কাজ করে। "সেভ" বাটনে ক্লিক করলেই ডাটা ক্লাউডে যাবে।</p>
+                </div>
+            `;
+            showCustomModal('ক্লাউড সিঙ্ক ম্যানেজার', html);
+        });
+}
+
+// 4. বাটন যোগ করুন
+function addCloudSyncButtons() {
+    const headerControls = document.querySelector('.header-controls');
+    if (!headerControls) return;
+    
+    if (!document.getElementById('cloudSyncBtn')) {
+        const syncBtn = document.createElement('button');
+        syncBtn.id = 'cloudSyncBtn';
+        syncBtn.innerHTML = '☁️ ক্লাউড সিঙ্ক';
+        syncBtn.className = 'control-btn';
+        syncBtn.onclick = showCloudSyncStatus;
+        syncBtn.style.background = 'linear-gradient(135deg, #667eea, #764ba2)';
+        syncBtn.style.color = 'white';
+        headerControls.appendChild(syncBtn);
+    }
+}
+
+// 5. অটো সিঙ্ক বন্ধ করুন (কোনো ডাটা auto যাবে না)
+if (typeof autoSyncToFirebase === 'function') {
+    window.autoSyncToFirebase = function() {
+        console.log('⛔ অটো সিঙ্ক বন্ধ। ম্যানুয়ালি সিঙ্ক করুন');
+        return;
+    };
+}
+
+// 6. পেজ লোডে বাটন যোগ করুন
+setTimeout(addCloudSyncButtons, 1000);
+
+// গ্লোবাল ফাংশন এক্সপোজ
+window.manualSyncToCloud = manualSyncToCloud;
+window.manualRestoreFromCloud = manualRestoreFromCloud;
+window.showCloudSyncStatus = showCloudSyncStatus;
+
+console.log('✅ ক্লাউড সিঙ্ক সেটআপ সম্পন্ন');
+console.log('📌 এখন "☁️ ক্লাউড সিঙ্ক" বাটন ব্যবহার করুন');
+
+// ==================== ক্লাউড সিঙ্ক ফাংশন (script.js এ যোগ করার জন্য) ====================
+
+// 1. ম্যানুয়াল সিঙ্ক ফাংশন
+if (typeof window.manualSyncToCloud !== 'function') {
+    window.manualSyncToCloud = function() {
+        if (!currentUser || !currentUser.id || typeof database === 'undefined') {
+            showNotification('❌ ইউজার লগইন নেই বা Firebase নেই!', 'error');
+            return;
+        }
+        
+        showNotification('☁️ ক্লাউডে সেভ হচ্ছে...', 'info');
+        
+        const cloudData = {
+            transactions: transactions,
+            monthlyRecharges: monthlyRecharges,
+            currentBalance: currentBalance,
+            totalRecharge: totalRecharge,
+            totalExpended: totalExpended,
+            meters: meters,
+            activeMeterId: activeMeterId,
+            meterInfo: meterInfo,
+            settings: settings,
+            tariffRates: tariffRates,
+            lastUpdated: new Date().toISOString()
+        };
+        
+        database.ref('user_data/' + currentUser.id).set(cloudData)
+            .then(() => {
+                showNotification('✅ ক্লাউডে ডাটা সেভ হয়েছে!', 'success');
+                console.log('✅ ম্যানুয়াল সিঙ্ক সম্পন্ন');
+            })
+            .catch(err => {
+                showNotification('❌ সিঙ্ক ব্যর্থ!', 'error');
+                console.error(err);
+            });
+    };
+}
+
+// 2. ম্যানুয়াল রিস্টোর ফাংশন
+if (typeof window.manualRestoreFromCloud !== 'function') {
+    window.manualRestoreFromCloud = function() {
+        if (!currentUser || !currentUser.id || typeof database === 'undefined') {
+            showNotification('❌ ইউজার লগইন নেই!', 'error');
+            return;
+        }
+        
+        if (!confirm('⚠️ ক্লাউড থেকে ডাটা রিস্টোর করলে বর্তমান লোকাল ডাটা প্রতিস্থাপিত হবে! নিশ্চিত?')) return;
+        
+        showNotification('☁️ ক্লাউড থেকে ডাটা আনা হচ্ছে...', 'info');
+        
+        database.ref('user_data/' + currentUser.id).once('value')
+            .then(snapshot => {
+                const cloudData = snapshot.val();
+                if (!cloudData) {
+                    showNotification('❌ ক্লাউডে কোনো ডাটা নেই!', 'error');
+                    return;
+                }
+                
+                if (cloudData.transactions) transactions = cloudData.transactions;
+                if (cloudData.monthlyRecharges) monthlyRecharges = cloudData.monthlyRecharges;
+                if (cloudData.currentBalance !== undefined) currentBalance = cloudData.currentBalance;
+                if (cloudData.totalRecharge !== undefined) totalRecharge = cloudData.totalRecharge;
+                if (cloudData.totalExpended !== undefined) totalExpended = cloudData.totalExpended;
+                if (cloudData.meters) meters = cloudData.meters;
+                if (cloudData.activeMeterId) activeMeterId = cloudData.activeMeterId;
+                if (cloudData.meterInfo) meterInfo = cloudData.meterInfo;
+                
+                localStorage.setItem('desco_transactions', JSON.stringify(transactions));
+                localStorage.setItem('desco_monthlyRecharges', JSON.stringify(monthlyRecharges));
+                localStorage.setItem('desco_currentBalance', currentBalance);
+                localStorage.setItem('desco_totalRecharge', totalRecharge);
+                localStorage.setItem('desco_totalExpended', totalExpended);
+                localStorage.setItem('desco_meters', JSON.stringify(meters));
+                localStorage.setItem('desco_active_meter_id', activeMeterId);
+                localStorage.setItem('desco_meterInfo', JSON.stringify(meterInfo));
+                
+                showNotification('✅ ক্লাউড থেকে ডাটা রিস্টোর করা হয়েছে! পেজ রিফ্রেশ হবে', 'success');
+                setTimeout(() => location.reload(), 1500);
+            })
+            .catch(err => {
+                showNotification('❌ রিস্টোর ব্যর্থ!', 'error');
+                console.error(err);
+            });
+    };
+}
+
+// 3. স্ট্যাটাস দেখানোর ফাংশন
+if (typeof window.showCloudSyncStatus !== 'function') {
+    window.showCloudSyncStatus = function() {
+        if (!currentUser || !currentUser.id) {
+            showNotification('❌ ইউজার লগইন নেই!', 'error');
+            return;
+        }
+        
+        database.ref('user_data/' + currentUser.id).once('value')
+            .then(snapshot => {
+                const cloudData = snapshot.val();
+                const hasCloud = cloudData ? true : false;
+                
+                const html = `
+                    <div style="padding:15px">
+                        <h3>📊 ক্লাউড সিঙ্ক স্ট্যাটাস</h3>
+                        <div style="margin:15px 0;background:#f8f9fa;padding:15px;border-radius:10px">
+                            <p><strong>👤 ইউজার:</strong> ${currentUser.fullName} (@${currentUser.username})</p>
+                            <p><strong>☁️ ক্লাউড:</strong> ${hasCloud ? '✅ ডাটা আছে' : '❌ কোনো ডাটা নেই'}</p>
+                            <p><strong>📝 ট্রানজেকশন:</strong> ${transactions?.length || 0} টি</p>
+                            <p><strong>💰 ব্যালেন্স:</strong> ${currentBalance?.toFixed(2) || 0} টাকা</p>
+                            ${hasCloud ? `<p><strong>🕐 শেষ আপডেট:</strong> ${cloudData.lastUpdated ? new Date(cloudData.lastUpdated).toLocaleString('bn-BD') : 'জানা যায়নি'}</p>` : ''}
+                        </div>
+                        <div style="display:flex;gap:10px">
+                            <button onclick="manualSyncToCloud()" style="flex:1;padding:10px;background:#27ae60;color:white;border:none;border-radius:8px">💾 ক্লাউডে সেভ</button>
+                            <button onclick="manualRestoreFromCloud()" style="flex:1;padding:10px;background:#e74c3c;color:white;border:none;border-radius:8px">⬇️ ক্লাউড থেকে রিস্টোর</button>
+                        </div>
+                        <button onclick="closeModal()" style="margin-top:10px;width:100%;padding:8px;background:#95a5a6;color:white;border:none;border-radius:8px">✖ বন্ধ</button>
+                    </div>
+                `;
+                showCustomModal('☁️ ক্লাউড সিঙ্ক ম্যানেজার', html);
+            });
+    };
+}
+
+// 4. বাটন যোগ করার ফাংশন
+function addCloudSyncButton() {
+    if (document.getElementById('cloudSyncBtn')) return;
+    
+    const headerControls = document.querySelector('.header-controls');
+    if (!headerControls) {
+        setTimeout(addCloudSyncButton, 500);
+        return;
+    }
+    
+    const btn = document.createElement('button');
+    btn.id = 'cloudSyncBtn';
+    btn.innerHTML = '☁️ ক্লাউড সিঙ্ক';
+    btn.className = 'control-btn';
+    btn.style.cssText = 'background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer; margin-left: 5px;';
+    btn.onclick = window.showCloudSyncStatus;
+    headerControls.appendChild(btn);
+    console.log('✅ ক্লাউড সিঙ্ক বাটন যোগ করা হয়েছে');
+}
+
+// 5. পেজ লোডে বাটন যোগ করুন
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', addCloudSyncButton);
+} else {
+    addCloudSyncButton();
+}
+
+console.log('✅ ক্লাউড সিঙ্ক ফাংশন এবং বাটন যোগ করা হয়েছে');
+console.log('📌 পেজ রিফ্রেশ না করলেও কাজ করবে, তবে স্থায়ী করতে script.js এ সেভ করুন');
