@@ -9,27 +9,27 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "./icons/icon-192x192.png",
+      "src": "icons/icon-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
-      "src": "./icons/icon-512x512.png",
+      "src": "icons/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     }
   ],
   "screenshots": [
     {
-      "src": "./screenshots/desktop-screenshot.png",
+      "src": "screenshots/desktop-screenshot.png",
       "sizes": "1280x720",
       "type": "image/png",
       "form_factor": "wide"
     },
     {
-      "src": "./screenshots/mobile-screenshot.png",
+      "src": "screenshots/mobile-screenshot.png",
       "sizes": "720x1280",
       "type": "image/png",
       "form_factor": "narrow"
