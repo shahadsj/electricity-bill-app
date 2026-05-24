@@ -55,23 +55,6 @@
     console.log('🔥 Firebase Ready!');
     console.log('Database exists:', typeof database !== 'undefined');
     </script>
-	
-	<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', function() {
-      // এখানে ফাইলের নাম এবং পাথ ঠিক আছে কি না নিশ্চিত করুন
-      navigator.serviceWorker.register('./service-worker.js', { scope: './' })
-        .then(function(registration) {
-          console.log('✅ SW Registered with scope: ', registration.scope);
-          alert("✅ সার্ভিস ওয়ার্কার সফলভাবে রেজিস্টার্ড হয়েছে! এখন ৩০ সেকেন্ড অপেক্ষা করুন।");
-        }, function(err) {
-          console.log('❌ SW Registration failed: ', err);
-          alert("❌ সার্ভিস ওয়ার্কার রেজিস্ট্রেশন ফেল করেছে: " + err);
-        });
-    });
-  }
-</script>
-
 </head>
 <body>
     <!-- লগিন মডাল - আধুনিক ডিজাইন -->
@@ -930,48 +913,5 @@
 
 <script src="script.js"></script>
 <script src="pwa.js"></script>
-
-<script>
-// ১. জাভাস্ক্রিপ্ট সচল কি না তা চেক করার জন্য একটি অ্যালার্ট
-console.log("🛠️ PWA Internal Debugger Running...");
-
-(function() {
-    let report = "";
-    
-    // ২. ফাইল পাথ চেক
-    const scripts = Array.from(document.querySelectorAll('script')).map(s => s.src);
-    const pwaScriptLoaded = scripts.some(s => s.includes('pwa.js'));
-    report += pwaScriptLoaded ? "✅ pwa.js ফাইল লিঙ্ক করা আছে<br>" : "❌ pwa.js ফাইল লিঙ্ক করা নেই (পাথ চেক করুন)<br>";
-
-    // ৩. ম্যানিফেস্ট চেক
-    const manifest = document.querySelector('link[rel="manifest"]');
-    report += manifest ? "✅ manifest.json লিঙ্ক আছে<br>" : "❌ manifest.json লিঙ্ক নেই<br>";
-
-    // ৪. সার্ভিস ওয়ার্কার সাপোর্ট চেক
-    report += ('serviceWorker' in navigator) ? "✅ ব্রাউজার PWA সাপোর্ট করে<br>" : "❌ ব্রাউজার PWA সাপোর্ট করে না<br>";
-
-    // স্ক্রিনে একটি লাল বক্স দেখানো (যাতে মোবাইলে দেখা যায়)
-    const debugBox = document.createElement('div');
-    debugBox.style.cssText = "position:fixed; top:0; left:0; width:100%; background:red; color:white; padding:15px; z-index:100000; font-size:12px; font-family:sans-serif;";
-    debugBox.innerHTML = `
-        <strong>PWA Debugger:</strong><br>
-        ${report}
-        <button onclick="this.parentElement.remove()" style="float:right; background:white; color:red; border:none; padding:5px;">বন্ধ করুন</button>
-    `;
-    document.body.prepend(debugBox);
-
-    // ৫. সার্ভিস ওয়ার্কার আসলে কাজ করছে কি না চেক
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(regs => {
-            if (regs.length > 0) {
-                alert("✅ সার্ভিস ওয়ার্কার সচল আছে!");
-            } else {
-                alert("❌ সার্ভিস ওয়ার্কার রেজিস্টার্ড হয়নি!");
-            }
-        });
-    }
-})();
-</script>
-
 </body>
 </html>
