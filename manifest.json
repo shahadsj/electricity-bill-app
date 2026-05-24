@@ -1,13 +1,12 @@
 {
   "name": "বিদ্যুৎ বিল ক্যালকুলেটর",
   "short_name": "বিল ক্যালকুলেটর",
-  "description": "আপনার বিদ্যুৎ বিল ক্যালকুলেশন এবং ট্র্যাকিং অ্যাপ",
+  "description": "বিদ্যুৎ বিল ক্যালকুলেশন অ্যাপ",
   "start_url": "index.html",
   "display": "standalone",
   "background_color": "#2c3e50",
   "theme_color": "#3498db",
-  "orientation": "portrait-primary",
-  "scope": "./",
+  "orientation": "portrait",
   "icons": [
     {
       "src": "icons/icon-192x192.png",
